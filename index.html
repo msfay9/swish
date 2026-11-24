@@ -1,0 +1,1602 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Swish — Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Cormorant:ital,wght@0,500;1,400&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Unbounded:wght@300;500;600&family=Work+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Every value below is taken from the "Final — …" frames in the Swish Paper file. */
+  :root {
+    /* Direction D · Fine Line. UI is neutral; color lives in the brand (logo, line glasses, flavor icons). */
+    --welcome-teal: #F6F0EF;   /* Welcome + launch ground */
+    --teal: #2B2420;           /* Espresso ink */
+    --forest: #2B2420;         /* Primary text */
+    --forest-80: #2B242080;    /* Secondary text: Espresso at 50% */
+    --teal-80: #2B242080;
+    --ground: #F6F0EF;         /* App background */
+    --card: #FFFFFF;           /* Cards */
+    --feature: #F78E731A;      /* Featured cards: coral at 10% */
+    --feature-solid: #F6E6E3;
+    --line: #E3DCD2;           /* Hairlines */
+    --blue: #BA75B6;           /* Selected states (purple) */
+    --blue-loading: #9E7CE9;
+    --orchid: #BA75B6;         /* Primary CTAs */
+    --orchid-text: #FFFFFF;
+    --orchid-line: #BA75B6;
+    --raspberry: #C02955;
+    --raspberry-2: #C02955;
+    --raspberry-cam: #C02954;
+    --violet: #9E7CE9;
+    --mustard: #E5B351;
+    --coral: #F78E72;
+    --blush: #F78E72;
+    --sage: #E5B351;
+    --sage-2: #2B2420;
+    --sage-pct: #2B2420;
+    --peach: #F6E6E3;
+    --cam-ink: #F4F1ED;
+    --cam-ground: #1C1416;
+    --gellix: "Gellix", "DM Sans", system-ui, sans-serif;
+    --work: "Work Sans", system-ui, sans-serif;
+    --caps: "Unbounded", system-ui, sans-serif;
+    --sys: -apple-system, system-ui, "SF Pro Text", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: #EDDFE0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px 16px; font-family: var(--gellix); color: var(--forest); }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit; }
+  button:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; border-radius: 14px; }
+
+  /* ---------- Phone shell (Paper: 11px #141012 bezel, 53px screen radius) ---------- */
+  .phone { position: relative; width: 390px; height: 844px; border-radius: 53px; overflow: hidden; background: #000; box-shadow: 0 0 0 11px #141012, 0 30px 60px #3E021240; }
+  .island { position: absolute; z-index: 50; top: 11px; left: 134px; width: 122px; height: 36px; border-radius: 20px; background: #000; pointer-events: none; }
+  .statusbar { position: absolute; z-index: 49; top: 0; left: 0; right: 0; height: 62px; display: flex; align-items: center; justify-content: space-between; padding: 21px 26px 19px 34px; pointer-events: none; color: #fff; }
+  .statusbar .time { font: 600 17px/22px var(--sys); }
+  .statusbar svg { fill: currentColor; }
+  .phone.light .statusbar { color: #000; }
+
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transform: translateX(24px); transition: opacity .35s ease, transform .45s cubic-bezier(.2,.8,.2,1); }
+  .screen.on { opacity: 1; pointer-events: auto; transform: none; }
+  .screen.back { transform: translateX(-24px); }
+  .pad-top { height: 62px; flex-shrink: 0; }
+  .caps { font: 500 10px/12px var(--caps); letter-spacing: .3em; text-transform: uppercase; }
+
+  /* ---------- 00a Home screen ---------- */
+  #home { background: linear-gradient(180deg, #24355A 0%, #1A2846 55%, #121D33 100%); transform: none; transition: opacity .3s, transform .45s cubic-bezier(.2,.8,.2,1), filter .45s; }
+  #home.leaving { transform: scale(1.08); filter: blur(6px) brightness(.85); }
+  .ios { position: absolute; width: 60px; height: 60px; border-radius: 13px; background: url("home-screen.png") no-repeat; background-size: 1350px auto; }
+  .ios-label { position: absolute; width: 80px; text-align: center; font: 12px/14px var(--sys); color: #fff; }
+  .dock { position: absolute; left: 12px; top: 740px; width: 366px; height: 92px; border-radius: 32px; background: rgba(255,255,255,.14); }
+  .page-dots { position: absolute; left: 177px; top: 718px; display: flex; gap: 8px; }
+  .page-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.4); }
+  .page-dots i.on { background: #fff; }
+  .swish-app { position: absolute; left: 285px; top: 486px; width: 90px; height: 100px; z-index: 2; }
+  .swish-app .tile { position: absolute; left: 15px; top: 15px; width: 60px; height: 60px; border-radius: 13px; background: #BA75B6; overflow: hidden; transition: transform .14s, filter .14s; }
+  .swish-app.pressed .tile, .swish-app:active .tile { transform: scale(.88); filter: brightness(.85); }
+  /* The glass inside the icon wiggles, inviting the tap (replaces the pulse ring). */
+  .swish-app .tile svg { display: block; transform-origin: 48% 82%; animation: glassWiggle 2.4s ease-in-out infinite; }
+  .swish-app.pressed .tile svg { animation: none; }
+  @keyframes glassWiggle { 0%, 52%, 100% { transform: rotate(0); } 10% { transform: rotate(-9deg); } 22% { transform: rotate(7deg); } 34% { transform: rotate(-4deg); } 44% { transform: rotate(2deg); } }
+  .swish-app .name { position: absolute; left: 5px; top: 81px; width: 80px; text-align: center; font: 600 12px/14px var(--sys); color: #fff; }
+  .ring { position: absolute; left: 0; top: 0; width: 88px; height: 88px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); background: rgba(255,255,255,.16); animation: ring 1.8s ease-out infinite; pointer-events: none; }
+  @keyframes ring { 0% { transform: scale(.75); opacity: 0; } 30% { opacity: 1; } 100% { transform: scale(1.08); opacity: 0; } }
+  .launch { position: absolute; inset: 0; z-index: 40; background: var(--welcome-teal); transform-origin: 330px 531px; transform: scale(.15); opacity: 0; pointer-events: none; }
+  .launch.go { animation: launch .5s cubic-bezier(.2,.85,.25,1) forwards; }
+  .launch.fade { opacity: 0 !important; transition: opacity .18s ease; }
+  .screen.instant { transition: none !important; }
+  @keyframes launch { 0% { transform: scale(.15); opacity: 0; border-radius: 60px; } 30% { opacity: 1; } 100% { transform: scale(1); opacity: 1; border-radius: 53px; } }
+
+  /* ---------- 01 Welcome ---------- */
+  #welcome { background: var(--welcome-teal); }
+  .welcome-hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; padding: 62px 28px 62px; } /* splash: centered, as in Paper */
+  .welcome-hero .caps { letter-spacing: .4em; color: var(--blue); }
+  .logo { position: relative; width: 310px; height: 168px; flex-shrink: 0; }
+  .logo span { position: absolute; font: 172px/180px "Anton", Impact, sans-serif; opacity: 0; transform: translateY(14px); }
+  .logo .w { left: 55px; top: 0; color: #C0BA51; mix-blend-mode: screen; }
+  .logo .s1 { left: 0; top: 6px; color: #C02955; }
+  .logo .h { left: 230px; top: 7px; color: #C02955; }
+  .logo .s2 { left: 169px; top: 3px; color: #BA75B6; mix-blend-mode: screen; }
+  .logo .i { left: 148px; top: 7px; color: #2F7DBD; mix-blend-mode: screen; }
+  /* Splash: each letter stamps in like a letterpress run, left to right, alternating tilt. */
+  #welcome.on .logo span { animation: stamp .75s cubic-bezier(.3,.7,.3,1) forwards; }
+  .logo .s1 { --r: -9deg; } .logo .w { --r: 7deg; } .logo .i { --r: -6deg; } .logo .s2 { --r: 8deg; } .logo .h { --r: -7deg; }
+  #welcome.on .logo .s1 { animation-delay: 0s; } #welcome.on .logo .w { animation-delay: .12s; } #welcome.on .logo .i { animation-delay: .24s; } #welcome.on .logo .s2 { animation-delay: .36s; } #welcome.on .logo .h { animation-delay: .48s; }
+  @keyframes stamp {
+    0%   { opacity: 0; transform: translateY(-28px) rotate(var(--r)) scale(1.14); }
+    65%  { opacity: 1; transform: translateY(2px) rotate(calc(var(--r) * -.1)) scale(.99); }
+    100% { opacity: 1; transform: none; }
+  }
+  .welcome-hero .caps, .tagline { opacity: 0; }
+  #welcome.on .welcome-hero .caps { animation: fadeUp .35s ease-out forwards; }
+  #welcome.on .tagline { animation: fadeUp .4s ease-out .6s forwards; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .tagline { padding-top: 12px; font: 500 28px/34px var(--gellix); color: var(--blue); }
+  .welcome-actions { display: flex; flex-direction: column; gap: 12px; padding: 0 24px 44px; }
+  .btn { display: flex; align-items: center; justify-content: center; gap: 10px; height: 56px; border-radius: 100px; font: 600 16px/20px var(--gellix); }
+  .btn-orchid { background: var(--orchid); color: var(--orchid-text); }
+  .btn-outline { border: 1px solid var(--orchid-line); color: var(--orchid-line); transition: background-color .18s ease, color .18s ease; }
+  .btn-outline:hover { background: #C39BC626; color: #E3CDE4; }   /* lighter orchid fill on hover */
+  .btn-outline:active { background: #C39BC640; }
+  .welcome-actions .btn { font-size: 14px; line-height: 18px; }
+  .btn:active { transform: scale(.985); }
+  .btn[disabled] { opacity: .45; cursor: default; }
+
+
+  /* ---------- 01b Home v2 ---------- */
+  #app { background: var(--ground); }
+  .home-head { display: flex; flex-direction: column; gap: 6px; padding: 6px 24px 20px; }
+  .home-head .caps { color: var(--forest-80); }
+  .home-head h1 { margin: 0; font: 500 32px/38px var(--gellix); letter-spacing: -.01em; color: var(--forest); }
+  .weather { display: flex; align-items: center; gap: 10px; align-self: center; margin-top: 6px; padding: 6px 14px 6px 8px; border-radius: 100px; background: var(--card); font: 500 14px/20px var(--gellix); color: var(--forest); }
+  .weather svg { flex-shrink: 0; }
+  .weather i { width: 3px; height: 3px; border-radius: 50%; background: #2B242066; }
+  .weather b { font-weight: 500; color: #BA75B6; }
+  .find-card { display: flex; flex-direction: column; gap: 18px; margin: 0 16px; padding: 24px 20px 20px; border-radius: 28px; background: var(--teal); }
+  .find-card[hidden] { display: none; }
+  .picked-top { display: flex; align-items: center; gap: 16px; }
+  .picked-text { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .picked-text .caps { color: var(--sage); }
+  .picked-text h2 { margin: 0; font: 500 28px/32px var(--gellix); letter-spacing: -.01em; color: var(--card); }
+  .picked-text p { margin: 0; font: 500 14px/20px var(--gellix); color: var(--sage); }
+  .picked-bottle { position: relative; width: 64px; height: 96px; flex-shrink: 0; }
+  .picked-bottle i { position: absolute; left: 4px; top: 40px; width: 56px; height: 56px; border-radius: 50%; }
+  .picked-bottle img { position: absolute; left: 18px; top: 0; width: 28px; height: 96px; object-fit: contain; }
+  .picked-actions { display: flex; gap: 8px; }
+  .picked-actions .btn { flex: 1; height: 48px; font-size: 13px; }
+  .picked-actions .pill-ghost { display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 18px; }
+  .find-copy { display: flex; flex-direction: column; gap: 6px; }
+  .find-copy h2 { margin: 0; font: 500 28px/32px var(--gellix); letter-spacing: -.01em; color: var(--card); }
+  .find-copy p { margin: 0; font: 500 14px/20px var(--gellix); color: var(--sage); }
+  .find-cam { height: 52px; font-size: 14px; line-height: 18px; }
+  .table-link, .plan-link { align-self: center; font: 500 13px/18px var(--gellix); color: var(--card); text-decoration: underline 1px; text-underline-offset: 3px; }
+  .plan-link { align-self: flex-start; padding-top: 4px; }
+  .tonight-plan { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 20px; background: #FFFBF614; }
+  .date-tile { width: 60px; height: 56px; flex-shrink: 0; border-radius: 12px; background: var(--card); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .date-tile span { font: 600 8px/10px var(--caps); letter-spacing: .06em; color: var(--raspberry); }
+  .date-tile b { font: 500 20px/24px var(--gellix); color: var(--teal); }
+  .plan-head { display: flex; align-items: center; gap: 14px; }
+  .plan-head .plan-text b { font: 500 24px/28px var(--gellix); letter-spacing: -.01em; }
+  .plan-head .plan-text small { font: 500 14px/20px var(--gellix); color: var(--sage); }
+  .pick-preview { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 18px; background: #FFFBF614; text-align: left; transition: background-color .15s; }
+  .pick-preview:hover { background: #FFFBF621; }
+  .pick-preview > i { width: 10px; height: 10px; flex-shrink: 0; border-radius: 50%; background: var(--raspberry); box-shadow: 0 0 0 3px #C0295540; }
+  .pick-preview > span:first-of-type { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .pick-preview em { font-style: normal; font-size: 9px; letter-spacing: .25em; color: var(--sage); }
+  .pick-preview > span > b { font: 500 17px/22px var(--gellix); color: var(--card); }
+  .pp-num { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .pp-num b { font: 500 15px/18px var(--caps); color: var(--sage-pct); }
+  .pp-num small { font: 400 13px/16px var(--gellix); color: #FFFBF6CC; }
+  .plan-actions { display: flex; flex-direction: column; gap: 6px; }
+  .scan-else { height: 36px; display: flex; align-items: center; justify-content: center; gap: 8px; font: 500 14px/18px var(--gellix); color: #FFFBF6CC; }
+  .scan-else:hover { color: var(--card); }
+  .plan-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .plan-text b { font: 600 15px/20px var(--gellix); color: var(--card); }
+  .plan-text small { font: 400 13px/18px var(--gellix); color: var(--sage); }
+  .pour-card { display: flex; gap: 14px; align-items: center; margin: 12px 16px 0; padding: 18px 18px 18px 20px; border-radius: 24px; background: var(--card); }
+  .pour-tile { width: 56px; height: 56px; flex-shrink: 0; border-radius: 16px; background: #F2C6B4; display: flex; align-items: center; justify-content: center; }
+  .pour-text { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .pour-top { display: flex; align-items: center; gap: 8px; }
+  .pour-top .caps { color: var(--forest-80); }
+  .pour-text p { margin: 0; font: 500 15px/21px var(--gellix); color: #2B2420; }
+  .pour-text small { font: 400 12px/16px var(--gellix); color: #2B2420B3; }
+  .school-card { display: flex; align-items: center; gap: 16px; margin: 12px 16px 0; padding: 18px; border-radius: 24px; background: var(--card); }
+  .school-art { width: 64px; height: 64px; flex-shrink: 0; border-radius: 18px; background: #F2C6B4; display: flex; align-items: center; justify-content: center; }
+  .school-text { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .school-text .caps { letter-spacing: .25em; color: var(--raspberry); }
+  .school-text b { font: 500 17px/22px var(--gellix); color: #2B2420; }
+  .toast { position: absolute; left: 50%; bottom: 120px; z-index: 35; transform: translate(-50%, 20px); opacity: 0; padding: 10px 16px; border-radius: 100px; background: var(--teal); color: var(--card); font: 500 13px/16px var(--gellix); white-space: nowrap; transition: opacity .25s, transform .25s; pointer-events: none; }
+  .toast.on { opacity: 1; transform: translate(-50%, 0); }
+  .pill-ghost { display: flex; align-items: center; height: 48px; padding: 0 20px; border-radius: 100px; border: 1px solid #FFFBF64D; font: 500 14px/18px var(--gellix); color: var(--card); transition: background-color .18s; }
+  .pill-ghost:hover { background: #FFFBF61A; }
+
+  /* ---------- 01c Set the table ---------- */
+  .table-scrim { position: absolute; inset: 0; z-index: 32; background: #2B242073; opacity: 0; pointer-events: none; transition: opacity .3s; }
+  .table-scrim.on { opacity: 1; pointer-events: auto; }
+  .table-sheet { position: absolute; left: 0; bottom: 0; width: 390px; z-index: 33; display: flex; flex-direction: column; gap: 16px; padding: 10px 24px 40px; border-radius: 32px 32px 0 0; background: var(--ground); box-shadow: 0 -12px 40px #00000059; transform: translateY(105%); transition: transform .45s cubic-bezier(.2,.85,.25,1); }
+  .table-sheet.on { transform: none; }
+  .reset { font: 500 13px/16px var(--gellix); color: var(--blue); }
+  .table-title { display: flex; flex-direction: column; gap: 12px; }
+  .table-title h2 { margin: 0; font: 500 28px/32px var(--gellix); letter-spacing: -.01em; color: var(--forest); }
+  .table-title p { display: flex; align-items: center; gap: 6px; align-self: flex-start; margin: 0; padding: 6px 12px 6px 10px; border-radius: 100px; background: var(--peach); font: 500 13px/16px var(--gellix); color: var(--forest); }
+  .t-group { display: flex; flex-direction: column; gap: 8px; }
+  .t-group .caps { color: var(--forest); }
+  .t-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .t-chip { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 100px; border: 1px solid #2B242033; font: 500 13px/16px var(--gellix); color: var(--forest); transition: background-color .15s, color .15s; }
+  .t-chip.on { background: var(--blue); border-color: var(--blue); color: var(--card); }
+  .t-chip.on svg path, .t-chip.on svg circle { stroke: var(--card); }
+  .t-chip i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .t-chip.on i { box-shadow: 0 0 0 1.5px var(--card); }
+  .t-budget { display: flex; flex-direction: column; gap: 12px; }
+  .t-budget-head { display: flex; align-items: center; justify-content: space-between; }
+  .t-budget .caps, .t-adv .caps { color: var(--forest); }
+  .t-seg { display: flex; gap: 2px; padding: 3px; border-radius: 100px; background: #2B24200F; }
+  .t-seg button { padding: 4px 12px; border-radius: 100px; font: 500 12px/16px var(--gellix); color: #2B2420B3; text-align: center; transition: background-color .15s, color .15s; }
+  .t-seg button.on { background: var(--card); box-shadow: 0 1px 2px #2B24201F; color: var(--forest); }
+  .t-range-val { font: 500 20px/24px var(--gellix); letter-spacing: -.01em; color: var(--forest); }
+  .t-range { position: relative; height: 24px; }
+  .t-range-track { position: absolute; left: 0; right: 0; top: 11px; height: 2px; border-radius: 2px; background: #2B242026; }
+  .t-range-fill { position: absolute; top: 10px; height: 4px; border-radius: 2px; background: var(--blue); }
+  .t-range input { position: absolute; left: 0; top: 0; width: 100%; height: 24px; margin: 0; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
+  .t-range input::-webkit-slider-runnable-track { background: none; }
+  .t-range input::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: var(--card); border: 2px solid var(--blue); box-sizing: border-box; pointer-events: auto; cursor: grab; }
+  .t-range input::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: var(--card); border: 2px solid var(--blue); box-sizing: border-box; pointer-events: auto; cursor: grab; }
+  .t-range-ends { display: flex; justify-content: space-between; font: 400 12px/16px var(--gellix); color: #2B2420B3; }
+  .t-adv { display: flex; flex-direction: column; gap: 8px; }
+  .t-seg-lg button { flex: 1; padding: 9px 0; font-size: 13px; }
+  .t-seg-lg button.on { background: var(--blue); box-shadow: none; color: var(--card); }
+  .t-input { display: flex; align-items: center; gap: 6px; min-width: 150px; padding: 8px 14px; border-radius: 100px; border: 1px dashed #2B242059; transition: border-color .15s, background-color .15s; }
+  .t-input input { width: 110px; border: 0; padding: 0; background: none; outline: none; font: 400 13px/16px var(--gellix); color: var(--forest); }
+  .t-input input::placeholder { color: #2B2420B3; }
+  .t-input:focus-within { border-style: solid; border-color: var(--blue); }
+  .t-input.on { background: var(--blue); border: 1px solid var(--blue); }
+  .t-input.on input { color: var(--card); } .t-input.on path { stroke: var(--card); }
+
+  /* ---------- Overlay: tuned for tonight ---------- */
+  .tonight-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 10px 10px 14px; border-radius: 16px; background: #2B24200A; text-align: left; }
+  .tonight-row svg { flex-shrink: 0; }
+  .tonight-row span { flex: 1; min-width: 0; display: block; font: 400 13px/18px var(--gellix); color: var(--forest-80); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tonight-row b { margin-right: 6px; font-weight: 600; color: var(--forest); }
+  .tonight-row em { flex-shrink: 0; font: 500 13px/16px var(--gellix); font-style: normal; color: var(--blue); }
+
+  /* ---------- 08 Swishlist ---------- */
+  #swishlist { background: var(--ground); }
+  .sl-stats { display: flex; gap: 8px; padding: 0 24px 22px; }
+  .sl-stats div { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .sl-stats b { font: 500 28px/32px var(--gellix); letter-spacing: -.01em; color: #2B2420; }
+  .sl-stats span { font: 400 13px/18px var(--gellix); color: var(--forest-80); }
+  .sl-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0 24px; }
+  .sl-head .caps { color: var(--forest); }
+  .sl-head button { font: 500 13px/16px var(--gellix); color: var(--blue); }
+  .saved-row { display: flex; gap: 10px; padding: 12px 16px 0; overflow-x: auto; scrollbar-width: none; }
+  .saved-row::-webkit-scrollbar { display: none; }
+  .saved-card { display: flex; flex-direction: column; gap: 14px; width: 156px; flex-shrink: 0; padding: 16px; border-radius: 22px; background: var(--card); text-align: left; }
+  .saved-top { display: flex; justify-content: space-between; align-items: center; }
+  .saved-top i { width: 22px; height: 22px; border-radius: 50%; }
+  .saved-card b { display: block; font: 500 15px/19px var(--gellix); color: var(--forest); }
+  .saved-card small { display: block; margin-top: 4px; font: 400 12px/16px var(--gellix); color: var(--forest-80); }
+  .saved-card > span { font: 400 12px/16px var(--gellix); color: var(--forest-80); }
+  .nights { display: flex; flex-direction: column; gap: 12px; padding: 28px 16px 140px; }
+  .nights > .caps { padding: 0 8px; color: var(--forest); }
+  .night { display: flex; flex-direction: column; gap: 16px; padding: 16px; border-radius: 24px; background: var(--card); text-align: left; }
+  .night-top { display: flex; gap: 14px; align-items: center; }
+  .night-photo { width: 52px; height: 64px; flex-shrink: 0; border-radius: 12px; background: url(menu.png) 45% 40% / cover; }
+  .night-top span { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .night-top b { font: 500 18px/24px var(--gellix); color: var(--forest); }
+  .night-top small { font: 400 13px/18px var(--gellix); color: var(--forest-80); }
+  .night-picks { display: flex; flex-direction: column; gap: 10px; padding-top: 14px; border-top: 1px solid #2B24201A; }
+  .night-row { display: flex; align-items: center; gap: 12px; }
+  .night-row em { width: 82px; flex-shrink: 0; font: 500 12px/16px var(--gellix); font-style: normal; color: var(--forest-80); }
+  .night-row em.pick { color: #C02955; }
+  .night-row b { flex: 1; font: 500 14px/18px var(--gellix); color: var(--forest); }
+  .night-row span { width: 52px; flex-shrink: 0; text-align: right; font: 400 12px/16px var(--gellix); color: var(--forest-80); }
+  .night-row span.star { font-weight: 500; color: var(--forest); }
+
+  /* ---------- 07 Profile ---------- */
+  #profile { background: var(--ground); }
+  .palate-card { display: flex; flex-direction: column; gap: 18px; margin: 0 16px; padding: 22px 20px 20px; border-radius: 28px; background: var(--teal); }
+  .dots2 { display: flex; } .dots2 i { width: 32px; height: 32px; border-radius: 50%; } .dots2 i + i { margin-left: -9px; }
+  .palate-copy { display: flex; flex-direction: column; gap: 6px; }
+  .palate-copy h2 { margin: 0; font: 500 26px/30px var(--gellix); letter-spacing: -.01em; color: var(--card); }
+  .palate-copy p { margin: 0; font: 500 14px/20px var(--gellix); color: var(--sage); }
+  .pscales { display: flex; flex-direction: column; gap: 14px; padding-top: 2px; }
+  .pscale { display: flex; align-items: center; gap: 12px; }
+  .pscale b { width: 72px; flex-shrink: 0; font: 500 13px/16px var(--gellix); color: var(--card); }
+  .pscale span { width: 52px; flex-shrink: 0; text-align: right; font: 400 12px/16px var(--gellix); color: #FFFBF6CC; }
+  .ptrack { position: relative; flex: 1; height: 14px; display: flex; align-items: center; }
+  .ptrack::before { content: ""; width: 100%; height: 1px; background: #FFFBF640; }
+  .ptrack i { position: absolute; top: 0; width: 14px; height: 14px; border-radius: 50%; background: var(--card); }
+  .palate-actions { display: flex; gap: 8px; padding-top: 2px; }
+  .palate-actions .btn { flex: 1; height: 48px; font-size: 13px; line-height: 16px; }
+  .psection { display: flex; flex-direction: column; gap: 10px; padding: 26px 16px 0; }
+  .psection.last { padding-bottom: 128px; }
+  .psec-head { display: flex; flex-direction: column; gap: 4px; padding: 0 4px; }
+  .psec-head .caps { color: var(--forest); }
+  .psec-head p { margin: 0; font: 400 14px/20px var(--gellix); color: var(--forest-80); }
+  .teach-card { display: flex; flex-direction: column; gap: 14px; padding: 18px; border-radius: 24px; background: var(--card); }
+  .teach-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .teach-top b { font: 500 18px/24px var(--gellix); color: var(--forest); }
+  .teach-top span { flex-shrink: 0; font: 400 12px/16px var(--gellix); color: var(--forest-80); }
+  .teach-opts { display: flex; gap: 8px; }
+  .teach-opts button { flex: 1; height: 40px; border-radius: 100px; background: var(--card); border: 1px solid #2B242033; font: 500 14px/18px var(--gellix); color: var(--forest); text-align: center; transition: background-color .15s, color .15s; }
+  .teach-opts button.on { background: var(--blue); border-color: var(--blue); color: var(--card); }
+  .teach-anim { animation: qin .35s cubic-bezier(.2,.8,.2,1); }
+  .pref-card { display: flex; flex-direction: column; padding: 0 18px; border-radius: 24px; background: var(--card); }
+  .pref-row { display: flex; align-items: center; gap: 12px; padding: 16px 0; border-bottom: 1px solid #2B24201A; }
+  .pref-row:last-child { border-bottom: 0; }
+  .pref-row span { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .pref-row b { font: 500 15px/20px var(--gellix); color: var(--forest); }
+  .pref-row small { font: 400 13px/18px var(--gellix); color: var(--forest-80); }
+  .vivino-row { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-radius: 22px; background: var(--card); }
+  .vivino-row i { width: 10px; height: 10px; border-radius: 50%; background: #A9B87D; flex-shrink: 0; }
+  .vivino-row b { flex: 1; font: 500 15px/20px var(--gellix); color: var(--forest); }
+  .vivino-row span { font: 500 14px/18px var(--gellix); color: var(--blue); }
+
+  /* ---------- 02 Quiz ---------- */
+  #quiz { background: var(--ground); }
+  .quiz-head { display: flex; flex-direction: column; gap: 20px; padding: 8px 24px 0; }
+  .quiz-nav { display: flex; align-items: center; justify-content: space-between; color: var(--teal); }
+  .quiz-count { font: 500 10px/12px var(--caps); letter-spacing: .3em; }
+  .skip { font: 500 14px/18px var(--gellix); color: var(--teal); }
+  .progress { display: flex; gap: 4px; }
+  .progress i { flex: 1; height: 3px; border-radius: 2px; background: #BA75B626; transition: background .3s; }
+  .progress i.on { background: var(--blue); }
+  .quiz-body { flex: 1; display: flex; flex-direction: column; padding: 32px 24px 0; }
+  .q-anim { display: flex; flex-direction: column; animation: qin .4s cubic-bezier(.2,.8,.2,1); }
+  @keyframes qin { from { opacity: 0; transform: translateX(18px); } }
+  .q-label { color: var(--teal); }
+  .q-title { margin: 12px 0; font: 500 32px/42px var(--gellix); letter-spacing: -.01em; color: var(--teal); }
+  .q-sub { margin: 0 0 24px; font: 400 15px/22px var(--gellix); color: var(--teal-80); }
+  .tiles { display: flex; flex-wrap: wrap; gap: 10px; }
+  .tile-opt { width: 166px; height: 158px; padding: 18px; border-radius: 24px; background: var(--card); display: flex; flex-direction: column; justify-content: space-between; transition: transform .15s; }
+  .tile-opt:active { transform: scale(.98); }
+  .tile-dot { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background .2s; }
+  .tile-dot svg { display: none; }
+  .tile-opt.sel .tile-dot svg { display: block; }
+  .opt-name { font: 500 16px/20px var(--work); color: var(--teal); }
+  .opt-desc { margin-top: 4px; font: 400 13px/18px var(--work); color: var(--teal-80); }
+  .rows { display: flex; flex-direction: column; gap: 10px; }
+  .row-opt { min-height: 64px; padding: 14px 18px; border-radius: 20px; background: var(--card); display: flex; align-items: center; gap: 14px; transition: transform .15s; }
+  .row-opt:active { transform: scale(.99); }
+  .radio { width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; border: 1.5px solid #2B242040; display: flex; align-items: center; justify-content: center; transition: background .2s, border-color .2s; }
+  .radio svg { display: none; }
+  .row-opt.sel .radio { background: var(--blue); border-color: var(--blue); }
+  .row-opt.sel .radio svg { display: block; }
+  .quiz-foot { padding: 16px 24px 44px; }
+
+  /* ---------- 00 Loading (your "SWISH IS SWIRLING" frame) ---------- */
+  #loading { background: var(--ground); }
+  .art { flex: 1; min-height: 0; display: flex; align-items: center; }
+  .art svg { display: block; }
+  .drink { transform-box: view-box; }
+  #loading.on .drink { animation: cheers 3s ease-in-out infinite; }
+  .d1 { transform-origin: 30px 150px; animation-delay: .1s !important; }
+  .d2 { transform-origin: 380px 150px; animation-delay: .4s !important; }
+  .d3 { transform-origin: 30px 380px; animation-delay: .7s !important; }
+  .d4 { transform-origin: 380px 290px; animation-delay: 1s !important; }
+  .d5 { transform-origin: 390px 470px; animation-delay: 1.3s !important; }
+  @keyframes cheers { 0%, 55%, 100% { transform: rotate(0); } 12% { transform: rotate(-5deg); } 26% { transform: rotate(4deg); } 40% { transform: rotate(-2deg); } }
+  .loading-copy { height: 165px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 8px 32px 64px; text-align: center; }
+  .loading-copy .caps { color: var(--raspberry-2); }
+  .loading-copy h2 { margin: 0; font: 500 32px/36px var(--gellix); letter-spacing: -.01em; color: var(--forest); }
+  .loading-copy p { margin: 0; font: 400 15px/22px var(--gellix); color: var(--teal-80); }
+  .ldots { display: flex; gap: 8px; padding-top: 6px; }
+  .ldots i { width: 8px; height: 8px; border-radius: 50%; background: var(--blue-loading); opacity: .35; animation: ld 1.5s ease-in-out infinite; }
+  .ldots i:nth-child(2) { animation-delay: .2s; } .ldots i:nth-child(3) { animation-delay: .4s; }
+  @keyframes ld { 0%, 100% { opacity: .35; } 40% { opacity: 1; } }
+
+  /* ---------- Your palate (prototype-only bridge screen, built from Final tokens) ---------- */
+  #result { background: var(--ground); }
+  .result-nav { display: flex; justify-content: flex-end; padding: 6px 24px 0; }
+  .result-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 0 24px; }
+  .result-dots { display: flex; gap: 8px; margin-bottom: 12px; }
+  .result-dots i { width: 36px; height: 36px; border-radius: 50%; opacity: 0; transform: scale(.4); }
+  #result.on .result-dots i { animation: pop .45s cubic-bezier(.3,1.6,.5,1) forwards; }
+  #result.on .result-dots i:nth-child(2) { animation-delay: .1s; } #result.on .result-dots i:nth-child(3) { animation-delay: .2s; }
+  @keyframes pop { to { opacity: 1; transform: none; } }
+  .result-body .caps { color: var(--forest-80); }
+  .result-body h2 { margin: 0; font: 500 32px/38px var(--gellix); letter-spacing: -.01em; color: var(--forest); }
+  .result-body p { margin: 0; font: 400 15px/22px var(--gellix); color: var(--forest-80); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 6px; }
+  .chip { padding: 8px 14px; border-radius: 100px; background: var(--sage); font: 500 13px/16px var(--gellix); color: var(--forest); }
+  .result-foot { display: flex; flex-direction: column; gap: 8px; padding: 0 24px 44px; }
+  .linkish { height: 44px; text-align: center; font: 500 14px/18px var(--gellix); color: var(--blue); }
+
+  /* ---------- 03 Scan ---------- */
+  #camera, #overlay { background: var(--cam-ground); }
+  .feed { position: absolute; left: 0; top: 62px; width: 390px; height: 782px; overflow: hidden; background: radial-gradient(circle farthest-corner at 50% 42%, #4A3A33 0%, #2A1E1C 55%, #140D0E 100%); }
+  .feed-photo { position: absolute; left: 0; top: 0; width: 390px; height: 782px; background-image: url("menu.png"); background-repeat: no-repeat; }
+  #camera .feed-photo { background-size: cover; background-position: 45% 50%; }
+  .viewfinder { position: absolute; left: 14px; top: 105px; width: 346px; height: 500px; }
+  .scanline { position: absolute; left: 14px; top: 232px; width: 318px; height: 2px; border-radius: 2px; background: var(--raspberry-cam); box-shadow: 0 0 18px 4px var(--raspberry-cam); }
+  #camera.scanning .scanline { animation: sweep 1.6s ease-in-out forwards; }
+  @keyframes sweep { 0% { top: 20px; } 100% { top: 476px; } }
+  .cam-chip { position: absolute; top: 2px; left: 0; width: 390px; display: flex; justify-content: center; }
+  .cam-chip span { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 100px; background: #1C141699; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); font: 500 13px/16px var(--gellix); color: var(--cam-ink); }
+  .cam-chip span.cam-tonight { gap: 8px; padding: 8px 8px 8px 14px; font-weight: 400; }
+  .cam-tonight strong { font: 600 13px/16px var(--gellix); }
+  .cam-tonight button { padding: 4px 10px; border-radius: 100px; background: #F4F1ED26; font: 500 13px/16px var(--gellix); color: var(--cam-ink); transition: background-color .15s; }
+  .cam-tonight button:hover { background: #F4F1ED40; }
+  .cam-chip [hidden] { display: none !important; }
+  .cam-chip b { width: 6px; height: 6px; border-radius: 50%; background: var(--raspberry-cam); }
+  .cam-controls { position: absolute; left: 0; bottom: 0; width: 390px; display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 22px 32px 40px; background: linear-gradient(180deg, #140D0E00 0%, #140D0EEB 40%); }
+  .mode { display: flex; gap: 4px; padding: 4px; border-radius: 100px; background: #F4F1ED4D; }
+  .mode span { padding: 7px 16px; border-radius: 100px; font: 500 13px/16px var(--gellix); color: var(--cam-ink); }
+  .mode .on { background: var(--blue); }
+  .cam-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+  .thumb { width: 48px; height: 48px; border-radius: 12px; background: #3E3538; }
+  .shutter { position: relative; width: 80px; height: 80px; border-radius: 50%; border: 3px solid var(--cam-ink); display: flex; align-items: center; justify-content: center; }
+  .shutter i { width: 64px; height: 64px; border-radius: 50%; background: var(--cam-ink); transition: transform .12s; }
+  .shutter:active i { transform: scale(.88); }
+  .shutter-hint { position: absolute; left: -11px; top: -11px; width: 96px; height: 96px; border-radius: 50%; border: 2px solid #F4F1ED99; animation: ring 1.8s ease-out infinite; pointer-events: none; }
+  .flat-btn { width: 48px; height: 48px; border-radius: 50%; background: #E8CFE624; display: flex; align-items: center; justify-content: center; }
+  .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+  .flash.go { animation: flash .35s ease-out; }
+  @keyframes flash { 0% { opacity: .9; } 100% { opacity: 0; } }
+
+  /* ---------- 04 Overlay ---------- */
+  #overlay .feed-photo { background-color: #2A2A2A; background-size: auto 867px; background-position: -120px -226px; }
+  .band.close { background: none; box-shadow: inset 0 0 0 1.5px #C02955A6; height: 16px; margin-top: -1px; }
+  .line-tap { position: absolute; left: 6px; width: 378px; height: 18px; }
+  .sel-band { position: absolute; left: 21px; height: 18px; border-radius: 3px; background: #BA75B626; border: 2px solid var(--blue); animation: pop .25s cubic-bezier(.3,1.6,.5,1); }
+  .sel-pct { position: absolute; padding: 3px 7px; border-radius: 100px; background: var(--blue); box-shadow: 0 4px 10px #00000040; font: 600 9px/12px var(--caps); letter-spacing: .04em; color: #fff; }
+  .back-pick { position: absolute; left: 16px; top: -46px; display: flex; align-items: center; gap: 8px; padding: 7px 12px 7px 10px; border-radius: 100px; background: #1C1416CC; -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); font: 500 13px/16px var(--gellix); color: #F4F1ED; }
+  .back-pick i { width: 8px; height: 8px; border-radius: 50%; background: var(--raspberry); }
+  .ov-why { display: flex; flex-direction: column; gap: 10px; }
+  .price-row { display: flex; align-items: center; gap: 6px; }
+  .price-row > b { font: 600 15px/20px var(--gellix); color: var(--forest); }
+  .ov-details { margin-left: auto; font: 500 14px/18px var(--gellix); color: var(--blue); }
+  .vtag { position: relative; padding: 4px 9px 4px 17px; clip-path: polygon(9px 0, 100% 0, 100% 100%, 9px 100%, 0 50%); border-radius: 0 6px 6px 0; font: 600 9px/12px var(--caps); letter-spacing: .12em; color: var(--forest); }
+  .vtag::before { content: ""; position: absolute; left: 8px; top: 50%; width: 4px; height: 4px; margin-top: -2px; border-radius: 50%; background: var(--card); }
+  .vtag.steal { border: 1.5px solid var(--mustard); background: none; font-weight: 600; color: var(--forest); }
+  .band { position: absolute; left: 24px; height: 14px; border-radius: 2px; background: #C0295533; transform-origin: left center; transform: scaleX(0); }
+  .mdot { position: absolute; left: 12px; width: 10px; height: 10px; border-radius: 50%; background: var(--raspberry); transform: scale(0); }
+  #overlay.on .band { animation: band .5s cubic-bezier(.2,.8,.2,1) forwards; }
+  #overlay.on .mdot { animation: pop .35s cubic-bezier(.3,1.6,.5,1) forwards; }
+  #overlay.on .m2 { animation-delay: .15s !important; } #overlay.on .m3 { animation-delay: .3s !important; }
+  @keyframes band { to { transform: scaleX(1); } }
+  .pill94 { position: absolute; left: 324px; top: 277px; padding: 4px 8px; border-radius: 100px; background: var(--raspberry); box-shadow: 0 4px 10px #00000040; font: 600 9px/12px var(--caps); letter-spacing: .04em; color: #fff; opacity: 0; transform: scale(.4); }
+  #overlay.on .pill94 { animation: pop .35s cubic-bezier(.3,1.6,.5,1) .5s forwards; }
+  .pick-row { position: absolute; left: 6px; top: 271px; width: 384px; height: 30px; pointer-events: none; }
+  .pick-row::after { content: ""; position: absolute; left: 16px; top: 6px; width: var(--w, 302px); height: 18px; border-radius: 4px; border: 2px solid var(--raspberry); opacity: 0; animation: tapme 2s ease-out 1.4s infinite; }
+  @keyframes tapme { 0% { opacity: 0; transform: scale(.98); } 30% { opacity: .9; } 100% { opacity: 0; transform: scale(1.03); } }
+  .sheet { position: absolute; left: 0; bottom: 0; width: 390px; display: flex; flex-direction: column; gap: 14px; padding: 10px 24px 40px; border-radius: 32px 32px 0 0; background: var(--ground); box-shadow: 0 -12px 40px #00000059; transform: translateY(100%); }
+  #overlay.on .sheet { animation: up .55s cubic-bezier(.2,.85,.25,1) .65s forwards; }
+  @keyframes up { to { transform: none; } }
+  .grab { align-self: center; width: 36px; height: 5px; border-radius: 3px; background: #2B242033; }
+  .sheet-top { display: flex; align-items: center; justify-content: space-between; padding-top: 4px; }
+  .sheet-top .caps { color: var(--forest-80); }
+  .seg { display: flex; gap: 2px; padding: 3px; border-radius: 100px; background: #2B242014; }
+  .seg button { padding: 5px 12px; border-radius: 100px; font: 500 12px/16px var(--gellix); color: var(--blue); }
+  .seg .on { background: var(--blue); color: var(--card); }
+  .sheet h2 { margin: 0; font: 500 28px/32px var(--gellix); letter-spacing: -.01em; color: var(--forest); }
+  .sheet p { margin: 0; font: 400 15px/22px var(--gellix); color: var(--forest-80); }
+  .sheet-actions { display: flex; gap: 8px; padding-top: 4px; }
+  .sheet-actions .btn { flex: 1; height: 52px; font-size: 15px; line-height: 18px; }
+  .round { width: 52px; height: 52px; flex-shrink: 0; border-radius: 50%; border: 1px solid #2B242040; display: flex; align-items: center; justify-content: center; }
+
+  /* ---------- 05 List View ---------- */
+  #list { background: var(--ground); }
+  .scroll { flex: 1; overflow-y: auto; scrollbar-width: none; }
+  .scroll::-webkit-scrollbar { display: none; }
+  .list-head { display: flex; flex-direction: column; gap: 18px; padding: 6px 24px 18px; }
+  .list-nav { display: flex; align-items: center; justify-content: space-between; }
+  .seg-lg button { padding: 6px 14px; font-size: 13px; }
+  .list-title { display: flex; flex-direction: column; gap: 6px; }
+  .list-title .caps { color: var(--forest-80); }
+  .list-title h2 { margin: 0; font: 500 32px/38px var(--gellix); letter-spacing: -.01em; color: var(--forest); }
+  .filters { display: flex; gap: 8px; }
+  .filters span { padding: 8px 14px; border-radius: 100px; border: 1px solid #2B242033; font: 500 13px/16px var(--gellix); color: var(--forest); }
+  .filters .on { background: var(--blue); border-color: var(--blue); color: var(--card); }
+  .picks { display: flex; flex-direction: column; gap: 10px; padding: 0 16px 128px; }
+  .hero-card { display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 28px; background: var(--teal); }
+  .hero-top { display: flex; align-items: center; justify-content: space-between; }
+  .hero-top .caps { letter-spacing: .25em; color: #FFFBF6CC; }
+  .hero-pct { font: 500 22px/28px var(--caps); letter-spacing: -.02em; color: var(--sage-pct); }
+  .hero-name { font: 500 32px/30px var(--gellix); color: var(--card); }
+  .hero-meta { margin-top: 2px; font: 500 14px/18px var(--gellix); color: var(--sage); }
+  .hero-quote { font: italic 400 19px/24px var(--gellix); color: var(--card); }
+  .hero-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 4px; border-top: 1px solid #CBA84A4D; }
+  .hero-foot > * { padding-top: 12px; }
+  .hero-tags { display: flex; gap: 6px; }
+  .hero-tags span { padding: 5px 10px; border-radius: 100px; background: #F3E4F21A; font: 400 12px/16px var(--gellix); color: var(--card); }
+  .hero-price { font: 500 16px/20px var(--gellix); color: var(--card); }
+  .wine-card { display: flex; flex-direction: column; gap: 3px; padding: 16px 20px; border-radius: 22px; background: var(--card); }
+  .wine-eyebrow { font: 500 9px/12px var(--caps); letter-spacing: .2em; text-transform: uppercase; color: #2B2420B3; }
+  .wine-eyebrow.hi { color: #7E8F4E; }
+  .wine-card .price-row { margin-top: 7px; }
+  .wine-text { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .wine-name { font: 600 21px/24px var(--gellix); color: var(--forest); white-space: nowrap; letter-spacing: -.01em; }
+  .wine-why { font: 400 13px/18px var(--gellix); color: var(--forest-80); }
+  .wine-num { width: 56px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .wine-pct { font: 300 15px/18px var(--caps); color: var(--forest); }
+  .wine-price { font: 400 13px/16px var(--gellix); color: var(--forest-80); }
+  .value { padding: 2px 8px; border-radius: 100px; font: 500 11px/14px var(--gellix); color: var(--forest); }
+  .wine-num .value { margin-top: 4px; }
+  .value.steal, .value.fair, .value.steep { background: none; color: var(--forest); border-width: 1.5px; } .value.steal { border-color: var(--mustard); } .value.fair { border-color: var(--violet); } .value.steep { border-color: var(--coral); }
+  .hero-price { display: flex; align-items: center; gap: 8px; }
+  .hero-pr > b { color: var(--card); }
+  .fair-card { width: 358px; margin: 24px auto 0; padding: 20px; border-radius: 24px; background: var(--card); display: flex; flex-direction: column; gap: 16px; }
+  .fair-card > .caps { color: var(--forest); }
+  .fair-head { display: flex; flex-direction: column; gap: 4px; }
+  .fair-verdict { display: flex; align-items: center; gap: 10px; }
+  .fair-verdict b { font: 500 24px/28px var(--gellix); letter-spacing: -.01em; color: var(--forest); }
+  .fair-verdict span { padding: 4px 10px; border-radius: 100px; background: var(--sage); font: 500 12px/16px var(--gellix); color: var(--forest); }
+  .fair-head p { margin: 0; font: 400 14px/20px var(--gellix); color: var(--forest-80); }
+  .markup { position: relative; height: 28px; }
+  .markup i { position: absolute; top: 10px; width: 104px; height: 8px; }
+  .markup i:nth-child(1) { left: 0; border-radius: 4px 0 0 4px; background: var(--sage); }
+  .markup i:nth-child(2) { left: 107px; background: #E7E3C4; }
+  .markup i:nth-child(3) { left: 214px; border-radius: 0 4px 4px 0; background: var(--blush); }
+  .markup b { position: absolute; top: 0; width: 4px; height: 28px; margin-left: -2px; border-radius: 2px; background: var(--forest); box-shadow: 0 0 0 2px var(--card); }
+  .markup-labels { display: flex; margin-top: -8px; font: 400 12px/16px var(--gellix); color: var(--forest-80); }
+  .markup-labels span { width: 107px; } .markup-labels span:nth-child(2) { text-align: center; } .markup-labels span:nth-child(3) { flex: 1; text-align: right; }
+  .fair-rows { display: flex; flex-direction: column; gap: 8px; padding-top: 14px; border-top: 1px solid #2B24201A; }
+  .fair-rows div { display: flex; align-items: baseline; justify-content: space-between; font: 400 14px/20px var(--gellix); color: var(--forest-80); }
+  .fair-rows b { font: 500 15px/20px var(--gellix); color: var(--forest); }
+  .glass-math { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 16px; background: var(--peach); font: 400 13px/18px var(--gellix); color: var(--forest); }
+  .glass-math svg { flex-shrink: 0; margin-top: 2px; }
+  .glass-math strong { font-weight: 600; }
+  .rest-label { display: flex; align-items: baseline; justify-content: space-between; padding: 22px 4px 4px; }
+  .rest-label .caps { color: var(--forest); }
+  .rest-label span:last-child { font: 400 13px/16px var(--gellix); color: var(--blue); }
+  .tabbar { position: absolute; left: 0; bottom: 0; width: 390px; display: flex; align-items: center; justify-content: space-around; padding: 12px 40px; border-top: 1px solid #2B24201A; background: linear-gradient(180.77deg, #E8CFE600 2.36%, #BA75B6 446.62%), var(--ground); z-index: 5; }
+  .tab { width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font: 500 11px/14px var(--gellix); color: var(--forest); }
+  .tab.dim { opacity: .55; }
+  .tab-cam { width: 60px; height: 60px; border-radius: 50%; background: var(--orchid); display: flex; align-items: center; justify-content: center; }
+
+  /* ---------- 06 Wine Detail ---------- */
+  #detail { background: var(--ground); }
+  .detail-top { display: flex; flex-direction: column; gap: 16px; padding: 6px 24px 22px; }
+  .detail-nav { display: flex; align-items: center; justify-content: space-between; }
+  .hero-row { display: flex; align-items: center; gap: 12px; }
+  .hero-text { flex: 1; display: flex; flex-direction: column; gap: 10px; padding-bottom: 6px; }
+  .hero-text .caps { letter-spacing: .25em; color: var(--forest-80); }
+  .hero-text h2 { margin: 0; font: 500 42px/44px var(--gellix); letter-spacing: -.02em; color: var(--forest); }
+  .meta { font: 400 14px/20px var(--gellix); color: var(--forest-80); }
+  .stage { position: relative; width: 124px; height: 224px; flex-shrink: 0; }
+  .stage .circle { position: absolute; left: 4px; top: 102px; width: 116px; height: 116px; border-radius: 50%; background: var(--raspberry-2); }
+  .stage img { position: absolute; left: 33px; top: 0; width: 58px; height: 224px; object-fit: contain; }
+  .sticker { position: absolute; left: 78px; top: 118px; width: 50px; height: 50px; border-radius: 50%; background: var(--forest); transform-origin: top left; transform: rotate(8deg); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .sticker b { padding-top: 4px; font: 500 14px/16px var(--caps); color: var(--sage-2); }
+  .sticker small { font: 500 9px/12px var(--gellix); color: var(--sage-2); }
+  .quote { font: italic 400 19px/24px var(--gellix); color: var(--forest); }
+  .glass-card { width: 358px; align-self: center; margin: 0 auto; padding: 20px; border-radius: 24px; background: var(--card); display: flex; flex-direction: column; gap: 14px; }
+  .glass-card .caps { color: var(--forest); }
+  #dScales { display: flex; flex-direction: column; gap: 14px; }
+  .scale { display: flex; align-items: center; gap: 12px; }
+  .scale b { width: 72px; flex-shrink: 0; font: 500 13px/16px var(--gellix); color: var(--forest); }
+  .scale span { width: 52px; flex-shrink: 0; text-align: right; font: 400 12px/16px var(--gellix); color: var(--forest-80); }
+  .track { position: relative; flex: 1; height: 14px; display: flex; align-items: center; }
+  .track::before { content: ""; width: 100%; height: 1px; background: #2B242033; }
+  .track i { position: absolute; top: 0; left: 0; width: 14px; height: 14px; border-radius: 50%; background: var(--blue); transition: left .8s cubic-bezier(.2,.8,.2,1); }
+  .pair { display: flex; flex-direction: column; gap: 10px; padding: 22px 24px 0; }
+  .fair-card { margin-bottom: 150px; }
+  .pair .caps { color: var(--forest); }
+  .detail-cta { position: absolute; left: 0; bottom: 0; width: 390px; z-index: 5; display: flex; flex-direction: column; gap: 8px; padding: 16px 24px 28px; border-top: 1px solid #2B24201A; background: linear-gradient(180deg, #E8CFE600 0%, #BA75B6 448.26%), var(--ground); }
+  .back-link { height: 28px; text-align: center; font: 500 15px/20px var(--gellix); color: var(--blue); }
+  .back-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  /* ---------- Swished (prototype-only end card) ---------- */
+  .scrim { position: absolute; inset: 0; z-index: 30; background: #2B242066; opacity: 0; pointer-events: none; transition: opacity .3s; }
+  .scrim.on { opacity: 1; pointer-events: auto; }
+  .done { position: absolute; left: 0; bottom: 0; width: 390px; z-index: 31; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 20px 24px 40px; border-radius: 32px 32px 0 0; background: var(--ground); box-shadow: 0 -12px 40px #00000040; text-align: center; transform: translateY(105%); transition: transform .5s cubic-bezier(.2,.85,.25,1); }
+  .done.on { transform: none; }
+  .done-art { width: 300px; height: 180px; margin-bottom: 4px; }
+  .done-art svg { display: block; width: 300px; height: 180px; overflow: visible; }
+  /* Swished: two hands slide in and clink, with a little spark where the glasses meet. Loops every 2.4s. */
+  .cl { transform-box: view-box; }
+  .cl-l { transform-origin: 60px 210px; } .cl-r { transform-origin: 390px 110px; }
+  .done.on .cl-l { animation: clinkL 2.4s ease-in-out .5s infinite backwards, slideL .5s cubic-bezier(.2,.8,.2,1) backwards; }
+  .done.on .cl-r { animation: clinkR 2.4s ease-in-out .5s infinite backwards, slideR .5s cubic-bezier(.2,.8,.2,1) backwards; }
+  @keyframes slideL { from { opacity: 0; transform: translateX(-60px) rotate(-9deg); } to { transform: rotate(-9deg); } }
+  @keyframes slideR { from { opacity: 0; transform: translateX(60px) rotate(9deg); } to { transform: rotate(9deg); } }
+  @keyframes clinkL { 0%, 100% { transform: rotate(-9deg); } 30% { transform: rotate(0); } 38% { transform: rotate(-3deg); } 46%, 72% { transform: rotate(0); } }
+  @keyframes clinkR { 0%, 100% { transform: rotate(9deg); } 30% { transform: rotate(0); } 38% { transform: rotate(3deg); } 46%, 72% { transform: rotate(0); } }
+  .spark path { opacity: 0; }
+  .done.on .spark path { animation: spark 2.4s ease-out 1.22s infinite; }
+  @keyframes spark { 0% { opacity: 0; } 6% { opacity: 1; } 24%, 100% { opacity: 0; } }
+  .done h2 { margin: 0; font: 500 32px/36px var(--gellix); letter-spacing: -.01em; color: var(--forest); }
+  .done p { margin: 0 0 8px; font: 400 15px/22px var(--gellix); color: var(--forest-80); }
+  .done .btn { width: 100%; }
+
+  .controls { display: flex; gap: 10px; align-items: center; font: 500 13px var(--sys); color: var(--forest); }
+  .controls button { padding: 8px 16px; border-radius: 100px; border: 1px solid #2B24204D; }
+  .step-name { min-width: 140px; text-align: center; opacity: .75; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
+
+  /* =====================================================================
+     Direction D · Fine Line, applied (Paper: "Direction D · Applied")
+     Neutral UI. Purple is the only action / selected color. Brand color
+     lives in the logo, the thin-line glasses, illustration and flavor icons.
+     ===================================================================== */
+  /* Welcome: outlined SWISH, wine pours in and sloshes */
+  .welcome-hero { gap: 22px; }
+  .welcome-hero .caps { color: var(--forest-80); }
+  .tagline { padding-top: 0; font: 500 24px/30px var(--gellix); color: var(--forest); }
+  .logo { width: 320px; height: 163px; }
+  .logo svg { display: block; overflow: visible; }
+  .lq { transform-box: view-box; }
+  .lq-level { transform: translateY(114px); }
+  #welcome.on .lq-level { animation: lqPour 2.4s cubic-bezier(.33,.0,.2,1) .2s forwards; }
+  @keyframes lqPour { to { transform: translateY(68px); } }
+  .lq-tilt { transform-origin: 108px 0; }
+  #welcome.on .lq-tilt { animation: lqSlosh 4.2s cubic-bezier(.45,0,.55,1) .9s both; }
+  @keyframes lqSlosh { 0% { transform: rotate(0); } 22% { transform: rotate(-4.5deg); } 48% { transform: rotate(3deg); } 72% { transform: rotate(-1.5deg); } 88% { transform: rotate(.6deg); } 100% { transform: rotate(0); } }
+  .lq-wave { animation: lqWave 5s linear infinite; }
+  @keyframes lqWave { to { transform: translateX(-54px); } }
+  .welcome-art { opacity: 0; }
+  #welcome.on .welcome-art { animation: fadeUp .6s ease-out 1.6s forwards; }
+  .welcome-art { align-self: center; margin: 28px -46px 0; }
+  .welcome-art svg { display: block; overflow: visible; }
+  .welcome-art .cl-l { transform: rotate(-9deg); } .welcome-art .cl-r { transform: rotate(9deg); }
+  /* Welcome cheers: hands meet, clink, sparks pop, hands pull apart and stop. The screen moves on when they've stopped. */
+  #welcome.on .welcome-art .cl-l { animation: wClinkL 2.8s cubic-bezier(.45,0,.4,1) 2.2s both; }
+  #welcome.on .welcome-art .cl-r { animation: wClinkR 2.8s cubic-bezier(.45,0,.4,1) 2.2s both; }
+  #welcome.on .welcome-art .spark path { animation: wSpark .9s ease-out 3.18s both; }
+  @keyframes wClinkL { 0% { transform: rotate(-9deg); } 35% { transform: rotate(0); } 41% { transform: rotate(-1.5deg); } 47%, 58% { transform: rotate(0); } 100% { transform: rotate(-12deg); } }
+  @keyframes wClinkR { 0% { transform: rotate(9deg); } 35% { transform: rotate(0); } 41% { transform: rotate(1.5deg); } 47%, 58% { transform: rotate(0); } 100% { transform: rotate(12deg); } }
+  @keyframes wSpark { 0% { opacity: 0; } 15% { opacity: 1; } 65% { opacity: 1; } 100% { opacity: 0; } }
+
+  /* Home */
+  .weather b { font-weight: 400; color: var(--forest-80); }
+  .weather i { background: #2B242040; }
+  .find-card, .palate-card, .hero-card { background: var(--feature); }
+  .picked-text .caps, .picked-text p, .find-copy p, .plan-head .plan-text small, .plan-text small, .pick-preview em, .palate-copy p, .hero-meta, .hero-top .caps { color: var(--forest-80); }
+  .picked-text h2, .find-copy h2, .plan-text b, .pick-preview > span > b, .palate-copy h2, .pscale b, .hero-name, .hero-quote, .hero-price, .hero-pr > b { color: var(--forest); }
+  .tonight-plan, .pick-preview { background: var(--card); }
+  .pick-preview { transition: box-shadow .15s; }
+  .pick-preview:hover { background: var(--card); box-shadow: 0 2px 10px #2B242014; }
+  .pick-preview > svg { flex-shrink: 0; }
+  .pp-num b { font: 600 17px/22px var(--gellix); color: var(--forest); }
+  .pp-num small { color: var(--forest-80); }
+  .date-tile span, .date-tile b { color: var(--forest); }
+  .scan-else { color: var(--forest); text-decoration: underline 1px; text-underline-offset: 3px; }
+  .scan-else:hover { color: var(--forest); text-decoration-thickness: 2px; }
+  .table-link, .plan-link { color: var(--forest); }
+  .pill-ghost { border-color: #2B242033; color: var(--forest); }
+  .pill-ghost:hover { background: #2B24200A; }
+  .pour-tile { width: 72px; height: 72px; background: var(--feature); border: 0; border-radius: 50%; }
+  .pour-tile svg { overflow: visible; transform: translate(1px, 2px) scale(1.4); }
+  /* 02 Home (Paper, user edits): coral 20% plan card, translucent date tile, no price on the pick, violet 10% Pour Decisions */
+  #app .find-card { background: #F78E7333; }
+  #app .date-tile { background: #FFFFFF80; }
+  #app .date-tile span { color: var(--forest-80); }
+  #ppPrice { display: none; }
+  .pour-card { background: #9E7CE91A; padding: 20px 22px; }
+  /* Pour Decisions: the tea bag bobs in the orange wine and its tag swings off the rim */
+  .tea-bag { transform-box: view-box; transform-origin: 32px 24px; animation: teaBob 3.6s ease-in-out infinite; }
+  .tea-tag { transform-box: view-box; transform-origin: 48px 7.5px; animation: teaSwing 3.6s ease-in-out infinite; }
+  @keyframes teaBob { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(1.2px) rotate(-3deg); } }
+  @keyframes teaSwing { 0%, 100% { transform: rotate(8deg); } 50% { transform: rotate(-10deg); } }
+  .pour-text p { font: 400 14px/20px var(--gellix); color: var(--forest); }
+  .toast { background: var(--forest); color: #fff; }
+
+  /* Text actions: always Espresso, always underlined */
+  .reset, .sl-head button, .vivino-row span, .linkish, .ov-details, .tonight-row em, .back-link { color: var(--forest); text-decoration: underline 1px; text-underline-offset: 3px; }
+  .back-link:hover { text-decoration-thickness: 2px; }
+  .rest-label span:last-child { color: var(--forest-80); }
+
+  /* Selected states: purple + white. Unselected: white or hairline. */
+  .seg, .t-seg { background: var(--card); box-shadow: inset 0 0 0 1px var(--line); }
+  .seg button, .t-seg button { color: var(--forest); }
+  .seg .on, .t-seg button.on { background: var(--orchid); color: #fff; box-shadow: none; }
+  .t-chip.on svg ellipse { stroke: var(--card); }
+  .progress i { background: #BA75B626; }
+  .tabbar { background: var(--ground); border-top-color: var(--line); }
+  .tab-cam { background: #C02956; }
+  .detail-cta { background: var(--ground); border-top-color: var(--line); }
+
+  /* Value badges: Steal pops (mustard + sparkle); Fair and Steep are hairline */
+  .vtag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; clip-path: none; border-radius: 100px; border: 1px solid var(--forest); background: none; font: 500 12px/16px var(--gellix); letter-spacing: 0; color: var(--forest); }
+  .vtag::before { display: none; }
+  .vtag.fair { border: 1.5px solid var(--violet); background: none; font-weight: 600; color: var(--forest); }
+  .vtag.steep { border: 1.5px solid var(--coral); background: none; font-weight: 600; color: var(--forest); }
+  .vtag.steal { border: 1.5px solid var(--mustard); background: none; font-weight: 600; color: var(--forest); }
+  .hero-card { box-shadow: inset 0 0 0 1.5px var(--coral); }
+  .value { border: 1px solid var(--forest); background: none; }
+  .value.steal, .value.fair, .value.steep { background: none; color: var(--forest); border-width: 1.5px; } .value.steal { border-color: var(--mustard); } .value.fair { border-color: var(--violet); } .value.steep { border-color: var(--coral); }
+  .fair-verdict span { background: var(--feature); }
+  .markup i:nth-child(1) { background: var(--mustard); } .markup i:nth-child(2) { background: #EADFD6; } .markup i:nth-child(3) { background: var(--coral); }
+  .glass-math { background: var(--feature); }
+
+  /* Chips, tags, scales */
+  .chip { background: var(--card); box-shadow: inset 0 0 0 1px #2B242026; color: var(--forest); }
+  .hero-tags span { padding: 6px 12px; background: none; border: 1px solid #2B242033; font: 500 13px/16px var(--gellix); color: var(--forest); }
+  .hero-foot { border-top-color: #2B24201F; }
+  .hero-pct { font: 500 26px/30px var(--gellix); letter-spacing: -.01em; color: var(--forest); }
+  .wine-eyebrow, .wine-eyebrow.hi { color: var(--forest-80); }
+  .track::before { background: var(--line); height: 2px; border-radius: 1px; }
+  .track i { width: 12px; height: 12px; top: 1px; background: var(--forest); }
+  .ptrack::before { background: #2B242026; }
+  .ptrack i { background: var(--forest); }
+  .pscale span { color: var(--forest-80); }
+
+  /* Detail: thin raspberry ring behind the bottle, soft badge */
+  .stage .circle { background: none !important; border: 1.5px solid var(--raspberry); }
+  .picked-bottle i { background: none !important; border: 1.5px solid var(--raspberry); }
+  .sticker { background: var(--feature-solid); }
+  .sticker b { font: 600 14px/16px var(--gellix); color: var(--forest); }
+  .sticker small { color: var(--forest-80); }
+
+  /* Flavor rings (Lucide, 1.25 stroke) replace the solid palate dots */
+  .flav { width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; border: 1px solid var(--c); background: var(--card); display: flex; align-items: center; justify-content: center; }
+  .flav svg { display: block; }
+  .result-dots i.flav { width: 48px; height: 48px; }
+  .dots2 { gap: 8px; } .dots2 .flav + .flav { margin-left: 0; }
+  .tile-dot { border: 1px solid var(--c); background: var(--card) !important; }
+  .tile-dot svg.ic { display: block; }
+  .tile-opt.sel .tile-dot { background: var(--c) !important; }
+  .tile-opt.sel .tile-dot svg.ic { display: none; }
+  .tile-opt.sel { box-shadow: inset 0 0 0 1.5px var(--orchid); }
+  .saved-top i { display: none; }
+  .vivino-row i { background: var(--violet); }
+  /* List: sort bar + tonight row replace the filter chips; every card names its wine type */
+  .sortbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .sortbar .caps { color: var(--forest-80); }
+  .sort-seg button { padding: 6px 12px; font: 500 13px/16px var(--gellix); }
+  #listTonight { margin-top: -2px; }
+  .wine-eyebrow, .hero-type { display: flex; align-items: center; gap: 8px; }
+  .wine-eyebrow > i, .hero-type > i { width: 3px; height: 3px; border-radius: 50%; background: #2B242059; flex-shrink: 0; }
+  .wtype { display: inline-flex; align-items: center; gap: 4px; color: var(--forest); }
+  .wtype svg { flex-shrink: 0; }
+  .rest-label.pick-label { padding-top: 0; }
+  .rest-label.pick-label .caps { color: var(--forest); }
+  .wine-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 2px; }
+  .card-pct { font: 600 15px/18px var(--gellix); color: var(--forest); }
+  .hero-top .card-pct { font-size: 17px; line-height: 20px; }
+  .hero-why { font: 400 15px/22px var(--gellix); color: var(--forest); }
+  #tableGo { background: #C02956; color: #FFFFFF; }
+  /* Wine detail: type eyebrow like the cards; each "In the glass" scale gets its own brand color */
+  #dType { margin-bottom: 2px; }
+  #dScales .scale:nth-child(1) .track i { background: var(--raspberry); }
+  #dScales .scale:nth-child(2) .track i { background: var(--mustard); }
+  #dScales .scale:nth-child(3) .track i { background: var(--violet); }
+  #dScales .scale:nth-child(4) .track i { background: var(--coral); }
+  #dScales .track i { width: 14px; height: 14px; top: 0; box-shadow: 0 0 0 3px var(--card); }
+  .find-cam, .sheet-actions .btn { font-size: 16px; line-height: 20px; }
+  .picked-actions .btn, .palate-actions .btn { font-size: 15px; line-height: 18px; }
+</style>
+</head>
+<body>
+<main class="phone" id="phone" aria-live="polite">
+  <div class="island" id="island" hidden></div>
+  <div class="statusbar" aria-hidden="true">
+    <div><span class="time">9:41</span></div>
+    <div><svg width="82" height="22" viewBox="0 0 82 22"><path d="M3.7 13H2.5a1 1 0 0 0-1 1v2.5a1 1 0 0 0 1 1h1.2a1 1 0 0 0 1-1V14a1 1 0 0 0-1-1m5.2-2.5H7.7a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h1.2a1 1 0 0 0 1-1v-5a1 1 0 0 0-1-1M14.1 8h-1.2a1 1 0 0 0-1 1v7.5a1 1 0 0 0 1 1h1.2a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1m5.2-2.5h-1.2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h1.2a1 1 0 0 0 1-1v-10a1 1 0 0 0-1-1"/><path fill-rule="evenodd" d="M36.57 7.8c2.49 0 4.88.92 6.68 2.58.14.13.36.12.49 0l1.3-1.27a.34.34 0 0 0 0-.5 12.55 12.55 0 0 0-16.93 0 .34.34 0 0 0 0 .5l1.3 1.26c.13.13.34.14.48 0a10 10 0 0 1 6.68-2.57m0 4.22a5.4 5.4 0 0 1 3.67 1.44c.14.13.35.13.48 0l1.3-1.33a.37.37 0 0 0-.01-.52 7.9 7.9 0 0 0-10.88 0 .37.37 0 0 0 0 .52l1.29 1.32c.13.14.34.14.48 0 1-.92 2.31-1.43 3.67-1.43m2.52 2.8q0 .15-.1.28l-2.18 2.45a.3.3 0 0 1-.24.11.3.3 0 0 1-.24-.1l-2.18-2.46a.43.43 0 0 1 .01-.56 3.44 3.44 0 0 1 4.82 0 .4.4 0 0 1 .11.28" clip-rule="evenodd"/><path fill-rule="evenodd" d="M70.5 5c2.05 0 3.08 0 3.88.34a4.3 4.3 0 0 1 2.28 2.28c.34.8.34 1.83.34 3.88s0 3.08-.34 3.88a4.3 4.3 0 0 1-2.28 2.28c-.8.34-1.83.34-3.88.34h-12c-2.05 0-3.08 0-3.88-.34a4.3 4.3 0 0 1-2.28-2.28c-.34-.8-.34-1.83-.34-3.88s0-3.08.34-3.88a4.3 4.3 0 0 1 2.28-2.28C55.42 5 56.45 5 58.5 5zM58.28 6c-1.85 0-2.77 0-3.48.36a3.3 3.3 0 0 0-1.44 1.44C53 8.5 53 9.43 53 11.28v.44c0 1.85 0 2.77.36 3.48a3.3 3.3 0 0 0 1.44 1.44c.7.36 1.63.36 3.48.36h12.44c1.85 0 2.77 0 3.48-.36a3.3 3.3 0 0 0 1.44-1.44c.36-.7.36-1.63.36-3.48v-.44c0-1.85 0-2.77-.36-3.48a3.3 3.3 0 0 0-1.44-1.44C73.5 6 72.57 6 70.72 6z" clip-rule="evenodd" opacity=".35"/><path d="M54 11c0-1.4 0-2.1.27-2.63a2.5 2.5 0 0 1 1.1-1.1C55.9 7 56.6 7 58 7h13c1.4 0 2.1 0 2.64.27q.72.37 1.09 1.1C75 8.9 75 9.6 75 11v1c0 1.4 0 2.1-.27 2.64a2.5 2.5 0 0 1-1.1 1.09C73.1 16 72.4 16 71 16H58c-1.4 0-2.1 0-2.63-.27a2.5 2.5 0 0 1-1.1-1.1C54 14.1 54 13.4 54 12z"/><path d="M78 9.5v4.08a2.2 2.2 0 0 0 1.33-2.04A2.2 2.2 0 0 0 78 9.5" opacity=".35"/></svg></div>
+  </div>
+
+  <!-- 00a · Home screen -->
+  <section class="screen on" id="home" aria-label="iPhone home screen">
+    <div id="iosGrid"></div>
+    <div class="page-dots" aria-hidden="true"><i></i><i class="on"></i><i></i></div>
+    <div class="dock" id="iosDock" aria-hidden="true"></div>
+    <button class="swish-app" id="openSwish" aria-label="Open Swish">
+      <span class="tile" id="appIcon"></span>
+      <span class="name">Swish</span>
+    </button>
+  </section>
+  <div class="launch" id="launch"></div>
+
+  <!-- 01 · Welcome -->
+  <section class="screen" id="welcome" aria-label="Welcome">
+    <div class="welcome-hero">
+      <div class="caps">Pocket sommelier</div>
+      <div class="logo" role="img" aria-label="Swish"><svg width="320" height="163" viewBox="0 0 216 110" aria-hidden="true"><defs><clipPath id="lgc0"><text x="0" y="100" font-family="Anton, Impact, sans-serif" font-size="100">S</text></clipPath><clipPath id="lgc1"><text x="41.1" y="100" font-family="Anton, Impact, sans-serif" font-size="100">W</text></clipPath><clipPath id="lgc2"><text x="107.3" y="100" font-family="Anton, Impact, sans-serif" font-size="100">I</text></clipPath><clipPath id="lgc3"><text x="125.0" y="100" font-family="Anton, Impact, sans-serif" font-size="100">S</text></clipPath><clipPath id="lgc4"><text x="166.1" y="100" font-family="Anton, Impact, sans-serif" font-size="100">H</text></clipPath></defs><g clip-path="url(#lgc0)"><g class="lq lq-level"><g class="lq lq-tilt"><path class="lq lq-wave" d="M-162 0 Q-148.5 -1.4 -135 0 T-108 0 T-81 0 T-54 0 T-27 0 T0 0 T27 0 T54 0 T81 0 T108 0 T135 0 T162 0 T189 0 T216 0 T243 0 T270 0 T297 0 T324 0 T351 0 T378 0 T405 0 T432 0 L432 200 L-162 200Z" fill="#C02955"/></g></g></g><g clip-path="url(#lgc1)"><g class="lq lq-level"><g class="lq lq-tilt"><path class="lq lq-wave" d="M-162 0 Q-148.5 -1.4 -135 0 T-108 0 T-81 0 T-54 0 T-27 0 T0 0 T27 0 T54 0 T81 0 T108 0 T135 0 T162 0 T189 0 T216 0 T243 0 T270 0 T297 0 T324 0 T351 0 T378 0 T405 0 T432 0 L432 200 L-162 200Z" fill="#9E7CE9"/></g></g></g><g clip-path="url(#lgc2)"><g class="lq lq-level"><g class="lq lq-tilt"><path class="lq lq-wave" d="M-162 0 Q-148.5 -1.4 -135 0 T-108 0 T-81 0 T-54 0 T-27 0 T0 0 T27 0 T54 0 T81 0 T108 0 T135 0 T162 0 T189 0 T216 0 T243 0 T270 0 T297 0 T324 0 T351 0 T378 0 T405 0 T432 0 L432 200 L-162 200Z" fill="#E5B351"/></g></g></g><g clip-path="url(#lgc3)"><g class="lq lq-level"><g class="lq lq-tilt"><path class="lq lq-wave" d="M-162 0 Q-148.5 -1.4 -135 0 T-108 0 T-81 0 T-54 0 T-27 0 T0 0 T27 0 T54 0 T81 0 T108 0 T135 0 T162 0 T189 0 T216 0 T243 0 T270 0 T297 0 T324 0 T351 0 T378 0 T405 0 T432 0 L432 200 L-162 200Z" fill="#BA75B6"/></g></g></g><g clip-path="url(#lgc4)"><g class="lq lq-level"><g class="lq lq-tilt"><path class="lq lq-wave" d="M-162 0 Q-148.5 -1.4 -135 0 T-108 0 T-81 0 T-54 0 T-27 0 T0 0 T27 0 T54 0 T81 0 T108 0 T135 0 T162 0 T189 0 T216 0 T243 0 T270 0 T297 0 T324 0 T351 0 T378 0 T405 0 T432 0 L432 200 L-162 200Z" fill="#F78E72"/></g></g></g><text x="0" y="100" font-family="Anton, Impact, sans-serif" font-size="100" fill="none" stroke="#C02955" stroke-width="1.6">S</text><text x="41.1" y="100" font-family="Anton, Impact, sans-serif" font-size="100" fill="none" stroke="#9E7CE9" stroke-width="1.6">W</text><text x="107.3" y="100" font-family="Anton, Impact, sans-serif" font-size="100" fill="none" stroke="#E5B351" stroke-width="1.6">I</text><text x="125.0" y="100" font-family="Anton, Impact, sans-serif" font-size="100" fill="none" stroke="#BA75B6" stroke-width="1.6">S</text><text x="166.1" y="100" font-family="Anton, Impact, sans-serif" font-size="100" fill="none" stroke="#F78E72" stroke-width="1.6">H</text></svg></div>
+      <div class="tagline">Wine lists, decoded.</div>
+      <div class="welcome-art" aria-hidden="true"><svg width="426" height="256" viewBox="0 0 400 240" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" id="welcomeArt"></svg></div>
+    </div>
+  </section>
+
+
+  <!-- 01b · Home v2 (logged in) -->
+  <section class="screen" id="app" aria-label="Swish home">
+    <div class="pad-top"></div>
+    <div class="home-head">
+      <div class="caps">Good evening</div>
+      <h1 id="homeTitle">What are we sipping tonight?</h1>
+      <button class="weather" id="weather" aria-label="Weather"></button>
+    </div>
+    <div class="find-card picked-card" id="pickedCard" hidden>
+      <div class="picked-top">
+        <div class="picked-text"><div class="caps">Sipping tonight</div><h2 id="pkName"></h2><p id="pkMeta"></p></div>
+        <div class="picked-bottle"><i id="pkCircle"></i><img src="bottle.png" alt="" id="pkBottle"></div>
+      </div>
+      <div class="picked-actions"><button class="btn btn-orchid" id="changePick">Change my pick</button><button class="pill-ghost" data-go="camera"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" stroke="#2B2420" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12.5" r="3.5" stroke="#2B2420" stroke-width="1.6"/></svg>New list</button></div>
+    </div>
+    <div class="find-card" id="findCard">
+      <div class="plan-head">
+        <div class="date-tile"><span>TONIGHT</span><b>7:30</b></div>
+        <div class="plan-text"><b>Pomet, with Jess</b><small>We already read the wine list and think you'll like to...</small></div>
+      </div>
+      <button class="pick-preview" id="pickPreview"><svg width="18" height="27" viewBox="0 0 100 150" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke="#C02955" stroke-width="6"><ellipse cx="48" cy="16" rx="34" ry="8"/><path d="M14 17Q6 64 22 86 36 100 48 100 60 100 74 86 90 64 82 17"/><path d="M48 100L48 132"/><ellipse cx="48" cy="138" rx="26" ry="6"/><path d="M11 54Q48 66 85 54"/></g></svg><span><em class="caps">Swish this</em><b id="ppName"></b></span><span class="pp-num"><b id="ppPct"></b><small id="ppPrice"></small></span></button>
+      <div class="plan-actions"><button class="btn btn-orchid find-cam" id="seePicks">See all 3 picks</button></div>
+    </div>
+    <div class="pour-card">
+      <div class="pour-text"><div class="pour-top"><span class="caps">Pour Decisions</span></div><p>Orange wine is made from white grapes fermented with their skins. Think tea that gets extra steeping time. The skins bring the amber color and that tannic grip. No oranges involved.</p></div>
+      
+    </div>
+    <div class="tabbar">
+      <button class="tab" data-go="swishlist"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M7 4h10v16l-5-3.6L7 20V4z" stroke="#2B2420" stroke-width="1.5" stroke-linejoin="round"/></svg>Swishlist</button>
+      <button class="tab-cam" data-go="camera" aria-label="Open camera"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" stroke="#FFFFFF" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12.5" r="3.5" stroke="#FFFFFF" stroke-width="1.6"/></svg></button>
+      <button class="tab" data-go="profile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8.5" r="3.5" stroke="#2B2420" stroke-width="1.5"/><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5" stroke="#2B2420" stroke-width="1.5" stroke-linecap="round"/></svg>Profile</button>
+    </div>
+    <div class="toast" id="toast"></div>
+  </section>
+
+  <!-- 03c · Set the table (sheet over the camera or results) -->
+  <div class="table-scrim" id="tableScrim"></div>
+  <div class="table-sheet" id="tableSheet" role="dialog" aria-label="Set the table">
+    <div class="grab"></div>
+    <div class="sheet-top"><div class="caps">Set the table</div><button class="reset" id="tableReset">Reset</button></div>
+    <div class="table-title"><h2>Tune tonight's picks</h2><p><svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M11.5 8.6A4.8 4.8 0 0 1 5.4 2.5a4.8 4.8 0 1 0 6.1 6.1z" stroke="#2B2420" stroke-width="1.4" stroke-linejoin="round"/></svg>Just for tonight. Your saved palate stays put.</p></div>
+    <div class="t-group" data-key="pour"><div class="caps">What are we pouring</div><div class="t-chips"></div></div>
+    <div class="t-group" data-key="dinner"><div class="caps">What's for dinner</div><div class="t-chips"></div></div>
+    <div class="t-budget">
+      <div class="t-budget-head"><div class="caps">Budget</div><div class="t-seg" id="budgetMode"><button data-v="glass">Glass</button><button data-v="bottle">Bottle</button></div></div>
+      <div class="t-range-val" id="budgetVal"></div>
+      <div class="t-range"><i class="t-range-track"></i><i class="t-range-fill" id="budgetFill"></i><input type="range" id="budgetMin" aria-label="Lowest price"><input type="range" id="budgetMax" aria-label="Highest price"></div>
+      <div class="t-range-ends"><span id="budgetLo"></span><span id="budgetHi"></span></div>
+    </div>
+    <div class="t-adv"><div class="caps">How adventurous</div><div class="t-seg t-seg-lg" id="advSeg"></div></div>
+    <button class="btn btn-orchid" id="tableGo">Done</button>
+  </div>
+
+
+  <!-- 08 · Swishlist -->
+  <section class="screen" id="swishlist" aria-label="Swishlist">
+    <div class="pad-top"></div>
+    <div class="scroll">
+      <div class="home-head"><div class="caps">Swishlist</div><h1>Every glass, remembered</h1></div>
+      <div class="sl-stats"><div><b>31</b><span>wines tasted</span></div><div><b>9</b><span>lists swished</span></div><div><b>8 of 9</b><span>picks you loved</span></div></div>
+      <div class="sl-head"><div class="caps">Saved for next time</div><button>See all 6</button></div>
+      <div class="saved-row"><div class="saved-card"><div class="saved-top"><svg width="14" height="21" viewBox="0 0 100 150" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke="#C02955" stroke-width="7"><ellipse cx="48" cy="16" rx="34" ry="8"/><path d="M14 17Q6 64 22 86 36 100 48 100 60 100 74 86 90 64 82 17"/><path d="M48 100L48 132"/><ellipse cx="48" cy="138" rx="26" ry="6"/><path d="M11 54Q48 66 85 54"/></g></svg><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16l-5-3.6L7 20V4z" fill="#BA75B6" stroke="#BA75B6" stroke-width="1.5" stroke-linejoin="round"/></svg></div><div><b>Gamay, Sauvette</b><small>2020 · France</small></div><span>Pomet · $12 glass</span></div><div class="saved-card"><div class="saved-top"><svg width="14" height="21" viewBox="0 0 100 150" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke="#C02955" stroke-width="7"><ellipse cx="48" cy="16" rx="34" ry="8"/><path d="M14 17Q6 64 22 86 36 100 48 100 60 100 74 86 90 64 82 17"/><path d="M48 100L48 132"/><ellipse cx="48" cy="138" rx="26" ry="6"/><path d="M11 54Q48 66 85 54"/></g></svg><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16l-5-3.6L7 20V4z" fill="#BA75B6" stroke="#BA75B6" stroke-width="1.5" stroke-linejoin="round"/></svg></div><div><b>Tempranillo, Torremorón</b><small>2020 · Spain</small></div><span>Pomet · $12 glass</span></div><div class="saved-card"><div class="saved-top"><svg width="14" height="21" viewBox="0 0 100 150" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke="#E5B351" stroke-width="7"><ellipse cx="48" cy="16" rx="34" ry="8"/><path d="M14 17Q6 64 22 86 36 100 48 100 60 100 74 86 90 64 82 17"/><path d="M48 100L48 132"/><ellipse cx="48" cy="138" rx="26" ry="6"/><path d="M11 54Q48 66 85 54"/></g></svg><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16l-5-3.6L7 20V4z" fill="#BA75B6" stroke="#BA75B6" stroke-width="1.5" stroke-linejoin="round"/></svg></div><div><b>Grüner, Hiedler Loess</b><small>2020 · Austria</small></div><span>Bar Velluto · $13 glass</span></div></div>
+      <div class="nights"><div class="caps">Lists you've swished</div><button class="night" data-go="overlay"><div class="night-top"><i class="night-photo" style="background-position:45% 40%"></i><span><b>Bar Velluto</b><small>Sat, Oct 18 · 20 wines read</small></span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3.5L10.5 8 6 12.5" stroke="#2B2420" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="night-picks"><div class="night-row"><em class="pick">Swish pick</em><b>Calabretta Etna Rosso</b><span>94%</span></div><div class="night-row"><em>You sipped</em><b>Same. Smart.</b><span class="star">★ 4.5</span></div></div></button><button class="night" data-go="overlay"><div class="night-top"><i class="night-photo" style="background-position:40% 70%"></i><span><b>Kin Khao</b><small>Fri, Oct 3 · 34 wines read</small></span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3.5L10.5 8 6 12.5" stroke="#2B2420" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="night-picks"><div class="night-row"><em class="pick">Swish pick</em><b>Hiedler Grüner Veltliner</b><span>91%</span></div><div class="night-row"><em>You sipped</em><b>Riesling. Went rogue.</b><span class="star">★ 3.5</span></div></div></button></div>
+    </div>
+    <div class="tabbar">
+      <button class="tab" data-go="swishlist"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M7 4h10v16l-5-3.6L7 20V4z" fill="#2B2420" stroke="#2B2420" stroke-width="1.5" stroke-linejoin="round"/></svg>Swishlist</button>
+      <button class="tab-cam" data-go="camera" aria-label="Open camera"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" stroke="#FFFFFF" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12.5" r="3.5" stroke="#FFFFFF" stroke-width="1.6"/></svg></button>
+      <button class="tab dim" data-go="profile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8.5" r="3.5" stroke="#2B2420" stroke-width="1.5"/><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5" stroke="#2B2420" stroke-width="1.5" stroke-linecap="round"/></svg>Profile</button>
+    </div>
+  </section>
+
+  <!-- 07 · Profile -->
+  <section class="screen" id="profile" aria-label="Profile">
+    <div class="pad-top"></div>
+    <div class="scroll">
+      <div class="home-head"><div class="caps">Profile</div><h1>Your palate</h1></div>
+      <div class="palate-card">
+        <div class="dots2 lg"><i class="flav" style="--c:#F78E72"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F78E72" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 17a5 5 0 0 0 10 0c0-2.76-2.5-5-5-3-2.5-2-5 .24-5 3Z"/><path d="M12 17a5 5 0 0 0 10 0c0-2.76-2.5-5-5-3-2.5-2-5 .24-5 3Z"/><path d="M7 14c3.22-2.91 4.29-8.75 5-12 1.66 2.38 4.94 9 5 12"/><path d="M22 9c-4.29 0-7.14-2.33-10-7 5.71 0 10 4.67 10 7Z"/></svg></i><i class="flav" style="--c:#E5B351"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#E5B351" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg></i></div>
+        <div class="palate-copy"><h2>Juicy, with a funky streak.</h2><p>Built from your quiz and 38 Vivino ratings</p></div>
+        <div class="pscales"><div class="pscale"><b>Body</b><div class="ptrack"><i style="left:28%"></i></div><span>Light</span></div><div class="pscale"><b>Acidity</b><div class="ptrack"><i style="left:72%"></i></div><span>Zippy</span></div><div class="pscale"><b>Tannin</b><div class="ptrack"><i style="left:40%"></i></div><span>Silky</span></div><div class="pscale"><b>Fruit</b><div class="ptrack"><i style="left:64%"></i></div><span>Juicy</span></div></div>
+        <div class="palate-actions"><button class="btn btn-orchid" id="retakeQuiz">Retake the quiz</button><button class="pill-ghost" id="fineTune">Fine-tune</button></div>
+      </div>
+      <div class="psection">
+        <div class="psec-head"><div class="caps">Teach us more</div><p>3 quick questions, whenever you're curious.</p></div>
+        <div class="teach-card"><div class="teach-top"><b id="teachQ">How do you feel about oak?</b><span id="teachN">1 of 3</span></div><div class="teach-opts" id="teachOpts"></div></div>
+      </div>
+      <div class="psection">
+        <div class="psec-head"><div class="caps">Preferences</div></div>
+        <div class="pref-card">
+          <div class="pref-row"><span><b>Usual budget</b><small>By the glass · under $16</small></span><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5L10.5 8 6 12.5" stroke="#2B2420" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="pref-row"><span><b>Hard no's</b><small>Excessive Tannins, Oxidation</small></span><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5L10.5 8 6 12.5" stroke="#2B2420" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="pref-row"><span><b>Sensitivities</b><small>None</small></span><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5L10.5 8 6 12.5" stroke="#2B2420" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        </div>
+      </div>
+      <div class="psection last">
+        <div class="psec-head"><div class="caps">Vivino</div></div>
+        <div class="vivino-row"><i></i><b>Connected · 38 ratings synced</b><span>Manage</span></div>
+      </div>
+    </div>
+    <div class="tabbar">
+      <button class="tab dim" data-go="swishlist"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M7 4h10v16l-5-3.6L7 20V4z" stroke="#2B2420" stroke-width="1.5" stroke-linejoin="round"/></svg>Swishlist</button>
+      <button class="tab-cam" data-go="camera" aria-label="Open camera"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" stroke="#FFFFFF" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12.5" r="3.5" stroke="#FFFFFF" stroke-width="1.6"/></svg></button>
+      <button class="tab" data-go="profile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8.5" r="3.5" stroke="#2B2420" stroke-width="1.5"/><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5" stroke="#2B2420" stroke-width="1.5" stroke-linecap="round"/></svg>Profile</button>
+    </div>
+  </section>
+
+  <!-- 02 · Quiz -->
+  <section class="screen" id="quiz" aria-label="Taste quiz">
+    <div class="pad-top"></div>
+    <div class="quiz-head">
+      <div class="quiz-nav">
+        <button aria-label="Back" id="quizBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#2B2420" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="quiz-count" id="quizCount">01 / 05</div>
+        <button class="skip" id="quizSkip">Skip</button>
+      </div>
+      <div class="progress" id="progress"></div>
+    </div>
+    <div class="quiz-body" id="quizBody"></div>
+    <div class="quiz-foot"><button class="btn btn-orchid" id="quizNext" style="width:100%" disabled>Next sip</button></div>
+  </section>
+
+  <!-- 00 · Loading (your frame, plays after the quiz and after the scan) -->
+  <section class="screen" id="loading" aria-label="Loading" aria-busy="true">
+    <div class="pad-top"></div>
+    <div class="art">
+      <svg width="390" height="560" viewBox="0 0 390 560" fill="none" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Five hands raising five drinks">
+        <g class="drink d1" stroke="#C02956"><g transform="translate(30.53 -14.51) rotate(23.7)">
+          <ellipse cx="109.851" cy="32.648" rx="60" ry="15"/><path d="M49.851 34.648Q67.851 90.648 109.851 93.648 151.851 90.648 169.851 34.648"/><path d="M59.851 48.648Q109.851 64.648 159.851 48.648"/><path d="M109.851 93.648Q107.851 114.648 109.851 134.648"/><ellipse cx="109.851" cy="140.648" rx="27" ry="7"/><path d="M79.851 28.648L147.851 0.648"/><circle cx="125.851" cy="10.648" r="7"/><circle cx="110.851" cy="16.648" r="6"/><path d="M9.851 98.648Q43.851 92.648 71.851 102.648"/><path d="M9.851 126.648Q43.851 126.648 73.851 120.648"/><path d="M71.851 102.648Q91.851 98.648 105.851 106.648"/><path d="M105.851 106.648Q115.851 110.648 111.851 118.648 105.851 122.648 95.851 118.648"/><path d="M73.851 120.648Q89.851 126.648 105.851 122.648 115.851 126.648 109.851 132.648 101.851 136.648 87.851 132.648"/>
+        </g></g>
+        <g class="drink d2" stroke="#9E7CE9"><g transform="translate(186.36 62.34) rotate(-22.7)">
+          <ellipse cx="48.045" cy="15.975" rx="34" ry="8"/><path d="M14.045 16.975Q6.045 63.975 22.045 85.975 36.045 99.975 48.045 99.975 60.045 99.975 74.045 85.975 90.045 63.975 82.045 16.975"/><path d="M11.045 53.975Q48.045 65.975 85.045 53.975"/><path d="M48.045 99.975L48.045 131.975"/><ellipse cx="48.045" cy="137.975" rx="26" ry="6"/><path d="M192.079 93.524Q115.279 97.524 64.079 103.524"/><path d="M179.08 135.524Q113.658 135.524 66.08 129.524"/><path d="M64.079 103.524Q42.079 99.524 36.079 109.524 36.079 117.524 50.079 117.524 58.079 117.524 64.079 115.524"/><path d="M66.079 129.524Q50.079 133.524 42.079 127.524 38.079 121.524 48.079 119.524"/>
+        </g></g>
+        <g class="drink d3" stroke="#BA75B6"><g transform="translate(15.55 186.49) rotate(11.6)">
+          <ellipse cx="128.598" cy="8.67" rx="29.704" ry="7.464"/><path d="M98.895 9.881Q89.044 55.9 103.924 80.797 116.317 95.74 128.693 95.754 141.07 95.767 153.43 80.852 168.255 55.988 158.303 9.947"/><path d="M95.222 45.954Q128.652 58.432 162.056 46.028"/><path d="M111.33 63.389Q116.295 75.835 123.724 78.331"/><path d="M128.693 95.754L128.74 138.051"/><ellipse cx="128.748" cy="145.516" rx="27.229" ry="6.22"/><path d="M17.961 163.823Q47.961 143.823 83.961 133.823"/><path d="M17.961 193.823Q51.961 177.823 87.961 159.823"/><path d="M83.961 133.823Q101.961 127.823 115.961 131.823 123.961 135.823 117.961 141.823 109.961 143.823 97.961 141.823"/><path d="M87.961 159.823C98.628 155.823 107.961 151.823 115.961 147.823C121.294 149.156 122.628 151.823 119.961 155.823C114.628 159.823 106.628 162.49 95.961 163.823"/><path d="M83.961 133.823Q81.961 121.823 93.961 119.823 101.961 121.823 99.961 129.823"/>
+        </g></g>
+        <g class="drink d4" stroke="#E5B351"><g transform="rotate(3 374 302) translate(206 210)">
+          <ellipse cx="86.076" cy="10.506" rx="36" ry="9"/><path d="M50.076 10.506Q42.076 56.506 54.076 78.506 66.076 94.506 86.076 94.506 106.076 94.506 118.076 78.506 130.076 56.506 122.076 10.506"/><path d="M46.076 48.506Q86.076 60.506 126.076 48.506"/><path d="M62.076 66.506Q68.076 78.506 78.076 82.506"/><path d="M192.076 46.506Q164.076 52.506 146.076 60.506"/><path d="M192.076 98.506Q156.076 104.506 126.076 102.506"/><path d="M146.076 60.506Q132.076 56.506 128.076 66.506 128.076 74.506 140.076 74.506"/><path d="M130.076 94.506Q106.076 104.506 76.076 102.506 62.076 100.506 66.076 92.506"/><path d="M126.076 102.506Q98.076 114.506 70.076 110.506"/>
+        </g></g>
+        <g class="drink d5" stroke="#F78E72"><g transform="translate(96 372)">
+          <ellipse cx="122" cy="-42" rx="18" ry="5"/><path d="M104-41Q100 12 110 42 116 54 122 54 128 54 134 42 144 12 140-41"/><path d="M103-26Q122-20 141-26"/><circle cx="118" cy="-6" r="2"/><circle cx="126" cy="8" r="2"/><circle cx="120" cy="24" r="2"/><circle cx="125" cy="-14" r="1.5"/><circle cx="123" cy="38" r="1.5"/><path d="M122 54L122 92"/><ellipse cx="122" cy="98" rx="20" ry="5"/>
+          <g transform="translate(55.72 -67.51) rotate(22.6)"><path d="M317.534 61.679Q237.534 53.679 157.534 49.679"/><path d="M317.534 137.679Q227.534 127.679 157.534 105.679"/><path d="M157.534 49.679Q127.534 45.679 109.534 55.679 105.534 65.679 117.534 67.679 139.534 67.679 155.534 65.679"/><path d="M155.534 65.679Q127.534 69.679 109.534 79.679 107.534 89.679 119.534 89.679 143.534 87.679 157.534 83.679"/><path d="M157.534 83.679Q131.534 91.679 115.534 99.679 115.534 107.679 127.534 107.679 147.534 105.679 157.534 105.679"/></g>
+        </g></g>
+      </svg>
+    </div>
+    <div class="loading-copy">
+      <div class="caps">Swish is swirling</div>
+      <h2 id="loadingTitle">Reading the list…</h2>
+      <p id="loadingSub">Matching 20 wines to your palate.</p>
+      <div class="ldots" aria-hidden="true"><i></i><i></i><i></i></div>
+    </div>
+  </section>
+
+  <!-- Your palate (prototype bridge) -->
+  <section class="screen" id="result" aria-label="Your palate">
+    <div class="pad-top"></div>
+    <div class="result-nav"><button aria-label="Close" id="resultClose"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#2B2420" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
+    <div class="result-body">
+      <div class="result-dots" id="resultDots"></div>
+      <div class="caps">Your palate</div>
+      <h2 id="resultTitle">You're juicy, and proud of it.</h2>
+      <p>Your answers are in. Now point us at a wine list and we'll find the bottle that's very you.</p>
+      <div class="chips" id="resultChips"></div>
+    </div>
+    <div class="result-foot">
+      <button class="btn btn-orchid" id="snapList"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" stroke="#FFFFFF" stroke-width="1.6"/><circle cx="12" cy="12.5" r="3.5" stroke="#FFFFFF" stroke-width="1.6"/></svg>Snap a wine list</button>
+    </div>
+  </section>
+
+  <!-- 03 · Scan -->
+  <section class="screen" id="camera" aria-label="Scan the wine list">
+    <div class="feed">
+      <div class="feed-photo"></div>
+      <div class="viewfinder">
+        <svg width="346" height="500" viewBox="0 0 346 500" fill="none" aria-hidden="true" style="position:absolute;left:0;top:0"><path d="M2 34V14C2 7.4 7.4 2 14 2h20M312 2h20c6.6 0 12 5.4 12 12v20M344 466v20c0 6.6-5.4 12-12 12h-20M34 498H14c-6.6 0-12-5.4-12-12v-20" stroke="#C02954" stroke-width="3" stroke-linecap="round"/></svg>
+        <div class="scanline"></div>
+      </div>
+      <div class="cam-chip"><span class="cam-tonight" id="camTonight"><strong>Tonight:</strong><em id="camTonightText" style="font-style:normal">Your usual palate</em><button id="camTable">Set the table</button></span><span id="camStatus" hidden><b></b><em id="camChip" style="font-style:normal">Decoding…</em></span></div>
+      <div class="flash" id="flash"></div>
+      <div class="cam-controls">
+        <div class="mode" aria-hidden="true"><span class="on">List</span><span>Label</span></div>
+        <div class="cam-row">
+          <div class="thumb" aria-hidden="true"></div>
+          <button class="shutter" id="shutter" aria-label="Take photo"><span class="shutter-hint" id="shutterHint"></span><i></i></button>
+          <button class="flat-btn" aria-label="Flash"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M11 2L4.5 11H10l-1 7 6.5-9H10l1-7z" stroke="#F4F1ED" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 · Overlay -->
+  <section class="screen" id="overlay" aria-label="Swish picks on your list">
+    <div class="feed">
+      <div class="feed-photo"></div>
+      <div id="marks"></div>
+      <div class="pill94" id="ovPct"></div>
+      <div class="pick-row" id="pickRow" aria-hidden="true"></div>
+      <div id="selMark"></div>
+      <div id="lineTaps"></div>
+      <div class="sheet">
+        <div class="grab"></div>
+        <button class="tonight-row" id="tonightRow" aria-label="Edit tonight's settings"></button>
+        <button class="back-pick" id="backToPick" hidden><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3.5L5.5 8l4.5 4.5" stroke="#F4F1ED" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><i></i>Back to Swish's pick</button>
+        <div class="sheet-top"><div class="caps" id="ovEyebrow">Swish this</div><div class="seg"><button class="on">Menu</button><button id="toList">List</button></div></div>
+        <h2 id="ovTitle"></h2>
+        <div class="ov-why"><p id="ovWhy"></p><div class="price-row"><b id="ovPrice"></b><span id="ovTag"></span></div></div>
+        <div class="sheet-actions">
+          <button class="btn btn-orchid" id="tellWhy">Give me a taste</button>
+          <button class="round" aria-label="Save"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5 3h10v14l-5-3.5L5 17V3z" stroke="#2B2420" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 · List View -->
+  <section class="screen" id="list" aria-label="All wines, ranked">
+    <div class="pad-top"></div>
+    <div class="scroll">
+      <div class="list-head">
+        <div class="list-nav">
+          <button aria-label="Back" id="listBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#2B2420" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <div class="seg seg-lg"><button id="toOverlay">Menu</button><button class="on">List</button></div>
+          <span style="width:24px"></span>
+        </div>
+        <div class="list-title"><div class="caps">Wine by the glass</div><h2>Three that are very you.</h2></div>
+        <button class="tonight-row" id="listTonight" aria-label="Edit tonight's settings"></button>
+        <div class="sortbar"><span class="caps">Sort</span><div class="seg sort-seg" id="sortSeg" role="radiogroup" aria-label="Sort the list"><button class="on" data-sort="match" aria-pressed="true">Match</button><button data-sort="value" aria-pressed="false">Value</button><button data-sort="price" aria-pressed="false">Price</button></div></div>
+      </div>
+      <div class="picks" id="picks">
+        <button class="hero-card" id="heroCard">
+          <div class="hero-top"><div class="wine-eyebrow" id="hType"></div><div class="card-pct" id="hPct"></div></div>
+          <div><div class="hero-name" id="hName"></div><div class="hero-meta" id="hMeta"></div></div>
+          <div class="hero-why" id="hWhy"></div>
+          <div class="price-row hero-pr" id="hPrice"></div>
+        </button>
+      </div>
+    </div>
+    <div class="tabbar">
+      <button class="tab" data-go="swishlist"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M7 4h10v16l-5-3.6L7 20V4z" stroke="#2B2420" stroke-width="1.5" stroke-linejoin="round"/></svg>Swishlist</button>
+      <button class="tab-cam" data-go="camera" aria-label="Open camera"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" stroke="#FFFFFF" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12.5" r="3.5" stroke="#FFFFFF" stroke-width="1.6"/></svg></button>
+      <button class="tab" data-go="profile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8.5" r="3.5" stroke="#2B2420" stroke-width="1.5"/><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5" stroke="#2B2420" stroke-width="1.5" stroke-linecap="round"/></svg>Profile</button>
+    </div>
+  </section>
+
+  <!-- 06 · Wine Detail -->
+  <section class="screen" id="detail" aria-label="Wine detail">
+    <div class="pad-top"></div>
+    <div class="scroll">
+      <div class="detail-top">
+        <div class="detail-nav">
+          <button aria-label="Back" id="detailBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#2B2420" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button aria-label="Save"><svg width="22" height="22" viewBox="0 0 20 20" fill="none"><path d="M5 3h10v14l-5-3.5L5 17V3z" stroke="#2B2420" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+        </div>
+        <div class="hero-row">
+          <div class="hero-text">
+            <div class="wine-eyebrow" id="dType"></div>
+            <h2 id="dName"></h2>
+            <div class="meta" id="dMeta"></div>
+          </div>
+          <div class="stage"><div class="circle" id="dCircle"></div><img src="bottle.png" alt="" id="dBottle"><div class="sticker"><b id="dPct"></b><small>you</small></div></div>
+        </div>
+        <div class="quote" id="dQuote"></div>
+      </div>
+      <div class="glass-card">
+        <div class="caps">In the glass</div>
+        <div id="dScales"></div>
+      </div>
+      <div class="pair"><div class="caps">Pair it</div><div class="chips" id="dPair"></div></div>
+      <div class="fair-card">
+        <div class="caps">Is it a fair price?</div>
+        <div class="fair-head"><div class="fair-verdict"><b id="fVerdict"></b><span id="fX"></span></div><p id="fWhy"></p></div>
+        <div><div class="markup"><i></i><i></i><i></i><b id="fMark"></b></div></div>
+        <div class="markup-labels"><span>Steal · under 2×</span><span>Fair · 2 to 3×</span><span>Steep · 3×+</span></div>
+        <div class="fair-rows"><div>In a shop<b id="fShop"></b></div><div>Here, by the bottle<b id="fBottle"></b></div><div>Here, by the glass<b id="fGlass"></b></div></div>
+        <div class="glass-math"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 2.5h8l-.6 5.2A3.4 3.4 0 0 1 10 10.8a3.4 3.4 0 0 1-3.4-3.1z M10 10.8v6.2 M7 17.5h6" stroke="#2B2420" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><div><strong>Glass math:</strong> four glasses cost the same as the bottle. Two of you, two glasses each? Get the bottle.</div></div>
+      </div>
+    </div>
+    <div class="detail-cta"><button class="btn btn-orchid" id="swishIt" style="width:100%">I'll be sipping on this</button><button class="back-link" id="toFullList">Back to the full list</button></div>
+  </section>
+
+  <div class="scrim" id="scrim"></div>
+  <div class="done" id="done" role="dialog" aria-label="Swished">
+    <div class="done-art" id="doneArt" aria-hidden="true"></div>
+    <h2>Swished.</h2>
+    <p id="doneText"></p>
+    <button class="btn btn-orchid" id="restart">Cheers to that</button>
+  </div>
+</main>
+
+<div class="controls">
+  <button id="prevStep" type="button">Back</button>
+  <span class="step-name" id="stepName">Home screen</span>
+  <button id="resetAll" type="button">Restart</button>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const phone = $('phone');
+  const names = { home: 'Home screen', welcome: 'Splash', app: 'Swish home', profile: 'Profile', swishlist: 'Swishlist', quiz: 'Taste quiz', loading: 'Loading', result: 'Your palate', camera: 'Snap the list', overlay: 'Swish picks', list: 'List view', detail: 'Wine detail' };
+  const light = new Set(['welcome', 'swishlist', 'app', 'profile', 'quiz', 'loading', 'result', 'list', 'detail']);
+  let current = 'home', history = [], timers = [];
+  const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+
+  function go(id, { back = false, push = true, instant = false } = {}) {
+    timers.forEach(clearTimeout); timers = [];
+    if (push && !back) history.push(current);
+    const prev = $(current);
+    const next = $(id);
+    if (instant) { prev.classList.add('instant'); next.classList.add('instant'); }
+    prev.classList.remove('on'); prev.classList.toggle('back', !back);
+    next.classList.remove('back'); next.classList.add('on');
+    if (instant) { void next.offsetWidth; prev.classList.remove('instant'); next.classList.remove('instant'); }
+    current = id;
+    phone.classList.toggle('light', light.has(id));
+    $('island').hidden = id === 'home';
+    $('stepName').textContent = names[id];
+    hideDone();
+    enter[id] && enter[id]();
+  }
+  function goBack() { if (history.length) go(history.pop(), { back: true, push: false }); }
+
+  /* App icon (2C, as used on Final — 00a and in the Final tab bar) */
+  const icon = (w) => `<svg width="${w}" height="${w}" viewBox="0 0 132 132" aria-hidden="true"><g transform="rotate(-8 66 70)"><path d="M40 60 Q52 46 66 56 Q80 66 92 46 L90 60 Q88 84 64 86 Q42 84 40 64 Z" fill="#E5B351"/><path d="M40 54 Q50 42 62 50 Q76 60 92 38 L91 50 Q86 70 64 72 Q44 70 40 58 Z" fill="#F78E72"/><path d="M38 24C36.667 64 45.333 85.333 64 88C82.667 85.333 92.667 64 94 24" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/><path d="M64 88 L64 108 M50 110 L78 110" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/></g><path d="M106 44 Q114 54 106 66" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/><path d="M114 36 Q126 54 114 74" fill="none" stroke="#F9EED6" stroke-width="3" stroke-linecap="round"/></svg>`;
+  $('appIcon').innerHTML = icon(60);
+
+  /* ---------- Home ---------- */
+  const cols = [27, 118, 209, 299], rows = [77, 183, 289, 395, 500];
+  const labels = [['Mail', 'Calendar', 'Photos', 'Camera'], ['Maps', 'Clock', 'Weather', 'News'], ['Home', 'Notes', 'Stocks', 'Reminders'], ['TV', 'App Store', 'iTunes Store', 'iBooks'], ['Health', 'Wallet', 'Settings', null]];
+  // Where each icon sits on screen, by name. iTunes Store moved to the far left of row 4.
+  const layout = { 'iTunes Store': [0, 3], 'TV': [1, 3], 'App Store': [2, 3] };
+  let grid = '';
+  rows.forEach((sy, r) => cols.forEach((sx, c) => {
+    const n = labels[r][c]; if (!n) return;
+    const [dc, dr] = layout[n] || [c, r];
+    const x = cols[dc], y = rows[dr];
+    grid += `<div class="ios" style="left:${x + 1}px;top:${y + 1}px;background-position:${-482 - sx}px ${-85 - sy}px" aria-hidden="true"></div><div class="ios-label" style="left:${x - 9}px;top:${y + 67}px">${n}</div>`;
+  }));
+  $('iosGrid').innerHTML = grid;
+  // Dock: Music moved to the far left; Phone, Safari, Messages shift right.
+  $('iosDock').innerHTML = cols.map((sx, i) => `<div class="ios" style="left:${cols[(i + 1) % 4] - 11}px;top:16px;background-position:${-482 - sx}px -840px"></div>`).join('');
+  $('openSwish').addEventListener('click', () => {
+    $('openSwish').classList.add('pressed');
+    setTimeout(() => {
+      $('openSwish').classList.remove('pressed');
+      $('home').classList.add('leaving');
+      const l = $('launch'); l.classList.remove('go'); void l.offsetWidth; l.classList.add('go');
+      setTimeout(() => {
+        go('welcome', { instant: true });            // Welcome is already in place under the zoom
+        $('home').classList.remove('leaving');
+        l.classList.add('fade');                     // then the zoom layer dissolves into it
+        setTimeout(() => { l.classList.remove('go', 'fade'); }, 200);
+      }, 500);
+    }, 150);
+  });
+
+  /* ---------- Welcome ---------- */
+
+
+  /* ---------- Quiz ---------- */
+  const FLAV = { crisp: '<path d="M21.66 17.67a1.08 1.08 0 0 1-.04 1.6A12 12 0 0 1 4.73 2.38a1.1 1.1 0 0 1 1.61-.04z"/><path d="M19.65 15.66A8 8 0 0 1 8.35 4.34"/><path d="m14 10-5.5 5.5"/><path d="M14 17.85V10H6.15"/>', juicy: '<path d="M2 17a5 5 0 0 0 10 0c0-2.76-2.5-5-5-3-2.5-2-5 .24-5 3Z"/><path d="M12 17a5 5 0 0 0 10 0c0-2.76-2.5-5-5-3-2.5-2-5 .24-5 3Z"/><path d="M7 14c3.22-2.91 4.29-8.75 5-12 1.66 2.38 4.94 9 5 12"/><path d="M22 9c-4.29 0-7.14-2.33-10-7 5.71 0 10 4.67 10 7Z"/>', bold: '<path d="M22 5V2l-5.89 5.89"/><circle cx="16.6" cy="15.89" r="3"/><circle cx="8.11" cy="7.4" r="3"/><circle cx="12.35" cy="11.65" r="3"/><circle cx="13.91" cy="5.85" r="3"/><circle cx="18.15" cy="10.09" r="3"/><circle cx="6.56" cy="13.2" r="3"/><circle cx="10.8" cy="17.44" r="3"/><circle cx="5" cy="19" r="3"/>', earthy: '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>' };
+  const flavIcon = (k, c, s = 22) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${FLAV[k] || ''}</svg>`;
+  const check = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3.429 8.228l2.971 2.972L12.572 5.028" stroke="#FFFBF6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const questions = [
+    { label: 'Your habits', title: 'How do you usually pick a wine?', sub: 'Be honest. We have all done it.', type: 'rows', options: [
+      ['Cutest label wins', 'Illustrated critters, obviously'], ['Second cheapest', 'The classic power move'],
+      ['Whatever the server says', 'Trust fall, but make it wine'], ['I have a system', 'Grapes, regions, vintages. The works.'] ] },
+    { label: 'Your palate', title: 'Which sip would you go back for?', sub: "No wrong answers. Pick two, we won't tell.", type: 'tiles', max: 2, options: [
+      ['Crisp & zingy', 'Green apple, lime, sea breeze', '#9E7CE9', 'crisp', '#FFFBF6'], ['Juicy & fruity', 'Cherry, plum, a little sunshine', '#F78E72', 'juicy', '#FFFBF6'],
+      ['Big & bold', 'Blackberry, oak, serious grip', '#C02955', 'bold', '#FFFBF6'], ['Earthy & funky', 'Mushroom, leather, forest floor', '#E5B351', 'earthy', '#FFFBF6'] ] },
+    { label: 'Tonight', title: 'Red, white or something in between?', sub: 'Just for tonight. Your palate can be fickle.', type: 'rows', options: [
+      ['Red, always', 'Even with fish. Fight me.'], ['White, please', 'Crisp, cold, done'], ['Rosé all day', 'Pink is a personality'],
+      ['Orange or natty', 'Skin contact, a little wild, very cool'], ['Bubbles', 'Every night is an occasion'] ] },
+    { label: 'Adventure', title: 'How adventurous are we feeling?', sub: 'We can play it safe. Or not.', type: 'rows', options: [
+      ['Keep it classic', 'Something I would recognize'], ['Surprise me a little', 'A new grape, a familiar vibe'], ['Full send', 'Pét-nat, skin contact, the weird stuff'] ] },
+    { label: 'Dinner', title: "What's on the table?", sub: "We'll pair to the food, not just to you.", type: 'rows', options: [
+      ['Pasta or pizza', 'Carbs, cheese, joy'], ['Fish or veggies', 'Light and bright'], ['Steak night', 'Something with backbone'], ['Snacks are dinner', 'Chips count. We checked.'] ] },
+  ];
+  let answers = questions.map(() => []), qi = 0;
+  function renderQuiz() {
+    const q = questions[qi];
+    $('quizCount').textContent = `0${qi + 1} / 0${questions.length}`;
+    $('progress').innerHTML = questions.map((_, i) => `<i class="${i <= qi ? 'on' : ''}"></i>`).join('');
+    const opts = q.options.map(([name, desc, color, key, ink], i) => {
+      const sel = answers[qi].includes(i) ? ' sel' : '';
+      return q.type === 'tiles'
+        ? `<button class="tile-opt${sel}" data-i="${i}" aria-pressed="${!!sel}"><span class="tile-dot" style="--c:${color}">${flavIcon(key, color, 20)}${check.replace('#FFFBF6', ink || '#FFFBF6')}</span><span><div class="opt-name">${name}</div><div class="opt-desc">${desc}</div></span></button>`
+        : `<button class="row-opt${sel}" data-i="${i}" aria-pressed="${!!sel}"><span class="radio">${check}</span><span><div class="opt-name">${name}</div><div class="opt-desc">${desc}</div></span></button>`;
+    }).join('');
+    $('quizBody').innerHTML = `<div class="q-anim"><div class="caps q-label">${q.label}</div><div class="q-title">${q.title}</div><p class="q-sub">${q.sub}</p><div class="${q.type}">${opts}</div></div>`;
+    syncQuiz();
+    $('quizNext').textContent = qi === questions.length - 1 ? 'Pour my palate' : 'Next sip';
+  }
+  function syncQuiz() {
+    document.querySelectorAll('#quizBody [data-i]').forEach((el) => { const on = answers[qi].includes(+el.dataset.i); el.classList.toggle('sel', on); el.setAttribute('aria-pressed', on); });
+    $('quizNext').disabled = answers[qi].length === 0;
+  }
+  $('quizBody').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-i]'); if (!b) return;
+    const i = +b.dataset.i, q = questions[qi], a = answers[qi];
+    if (q.type === 'tiles') { const at = a.indexOf(i); if (at > -1) a.splice(at, 1); else { a.push(i); if (a.length > q.max) a.shift(); } syncQuiz(); }
+    else { answers[qi] = [i]; syncQuiz(); }   // no auto-advance: users tap Next sip
+  });
+  function nextQ() { if (qi < questions.length - 1) { qi++; renderQuiz(); } else { loadingMode = 'palate'; go('loading'); } }
+  $('quizNext').addEventListener('click', nextQ);
+  $('quizSkip').addEventListener('click', () => { if (!answers[qi].length) answers[qi] = [qi === 1 ? 1 : 0]; nextQ(); });
+  $('quizBack').addEventListener('click', () => { if (qi > 0) { qi--; renderQuiz(); } else goBack(); });
+  $('retakeQuiz').addEventListener('click', () => { answers = questions.map(() => []); qi = 0; go('quiz'); });
+
+  /* ---------- Toasts for not-yet-designed destinations ---------- */
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 1800); }
+  $('fineTune').addEventListener('click', () => { const el = $('profile').querySelector('.teach-card'); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+
+  /* ---------- Set the table (one-off tuning) ---------- */
+  const pours = { Red: '#C02955', White: '#E5B351', 'Rosé': '#BA75B6', Orange: '#F78E72', Bubbles: '#9E7CE9' };
+  const glassIcon = (c, w = 10) => `<svg width="${w}" height="${w * 1.5}" viewBox="0 0 100 150" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke="${c}" stroke-width="9"><ellipse cx="48" cy="16" rx="34" ry="8"/><path d="M14 17Q6 64 22 86 36 100 48 100 60 100 74 86 90 64 82 17"/><path d="M48 100L48 132"/><ellipse cx="48" cy="138" rx="26" ry="6"/><path d="M11 54Q48 66 85 54"/></g></svg>`;
+  const tableOpts = { pour: Object.keys(pours), dinner: ['Pasta', 'Fish', 'Steak', 'Spicy', 'Snacks'] };
+  const advOpts = ['Play it safe', 'A little curious', 'Surprise me'];
+  const scales = { bottle: { min: 20, max: 150, step: 5, lo: 40, hi: 75 }, glass: { min: 8, max: 30, step: 1, lo: 12, hi: 16 } };
+  // Pour, budget and adventure come from the saved palate; dinner is tonight-only, so it starts empty.
+  const tableDefaults = { pour: 'Red', dinner: null, mode: 'bottle', lo: 40, hi: 75, adv: 'A little curious' };
+  let tonight = { ...tableDefaults };
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const money = (v) => (v >= scales[tonight.mode].max ? `$${v}+` : `$${v}`);
+  const budgetLabel = () => `${money(tonight.lo)} to ${money(tonight.hi)}${tonight.mode === 'glass' ? ' a glass' : ''}`;
+  // Dinner can be anything, so the last pill is a free-text field.
+  const typed = () => tonight.dinner && !tableOpts.dinner.includes(tonight.dinner);
+  const dinnerInput = () => `<label class="t-input${typed() ? ' on' : ''}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2.5 11.5l.6-2.6 6.6-6.6a1.4 1.4 0 0 1 2 2l-6.6 6.6z" stroke="#2B2420" stroke-width="1.4" stroke-linejoin="round"/></svg><input id="dinnerText" placeholder="Something else?" value="${typed() ? esc(tonight.dinner) : ''}" aria-label="What's for dinner"></label>`;
+  function renderBudget() {
+    const sc = scales[tonight.mode];
+    ['budgetMin', 'budgetMax'].forEach((id, i) => Object.assign($(id), { min: sc.min, max: sc.max, step: sc.step, value: i ? tonight.hi : tonight.lo }));
+    const pct = (v) => (v - sc.min) / (sc.max - sc.min);
+    const w = $('budgetMin').offsetWidth - 24; // thumb centres travel the width minus one thumb
+    $('budgetFill').style.left = `${12 + pct(tonight.lo) * w}px`;
+    $('budgetFill').style.width = `${(pct(tonight.hi) - pct(tonight.lo)) * w}px`;
+    $('budgetVal').textContent = budgetLabel();
+    $('budgetLo').textContent = `$${sc.min}`; $('budgetHi').textContent = `$${sc.max}+`;
+    $('budgetMode').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.v === tonight.mode));
+  }
+  function renderTable() {
+    document.querySelectorAll('.t-group').forEach((g) => {
+      const k = g.dataset.key;
+      g.querySelector('.t-chips').innerHTML = tableOpts[k].map((o) => `<button class="t-chip${tonight[k] === o ? ' on' : ''}" data-v="${o}" aria-pressed="${tonight[k] === o}">${k === 'pour' ? glassIcon(pours[o]) : ''}${o}</button>`).join('') + (k === 'dinner' ? dinnerInput() : '');
+    });
+    $('advSeg').innerHTML = advOpts.map((o) => `<button class="${tonight.adv === o ? 'on' : ''}" data-v="${o}">${o}</button>`).join('');
+    renderBudget();
+  }
+  $('tableSheet').addEventListener('change', (e) => {
+    if (e.target.id !== 'dinnerText') return;
+    const v = e.target.value.trim();
+    if (v) tonight.dinner = v; else if (typed()) tonight.dinner = null;
+    renderTable();
+  });
+  $('tableSheet').addEventListener('keydown', (e) => { if (e.target.id === 'dinnerText' && e.key === 'Enter') e.target.blur(); });
+  // Tapping a selected pill clears it: no pour means "anything goes".
+  document.querySelectorAll('.t-group').forEach((g) => g.addEventListener('click', (e) => {
+    const c = e.target.closest('.t-chip'); if (!c) return; const k = g.dataset.key;
+    tonight[k] = tonight[k] === c.dataset.v ? null : c.dataset.v; renderTable();
+  }));
+  $('advSeg').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { tonight.adv = b.dataset.v; renderTable(); } });
+  $('budgetMode').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b || b.dataset.v === tonight.mode) return;
+    tonight.mode = b.dataset.v; tonight.lo = scales[tonight.mode].lo; tonight.hi = scales[tonight.mode].hi; renderBudget();
+  });
+  ['budgetMin', 'budgetMax'].forEach((id) => $(id).addEventListener('input', () => {
+    const gap = scales[tonight.mode].step;
+    let lo = +$('budgetMin').value, hi = +$('budgetMax').value;
+    if (lo > hi - gap) { if (id === 'budgetMin') lo = hi - gap; else hi = lo + gap; }
+    tonight.lo = lo; tonight.hi = hi; renderBudget();
+  }));
+  const openTable = () => { $('tableScrim').classList.add('on'); $('tableSheet').classList.add('on'); renderTable(); };
+  const closeTable = () => { $('tableScrim').classList.remove('on'); $('tableSheet').classList.remove('on'); };
+  function renderCamTonight() {
+    const d = tableDefaults;
+    const changed = [
+      tonight.dinner !== d.dinner && tonight.dinner,
+      tonight.pour !== d.pour && (tonight.pour || 'Any color'),
+      (tonight.mode !== d.mode || tonight.lo !== d.lo || tonight.hi !== d.hi) && budgetLabel(),
+      tonight.adv !== d.adv && tonight.adv,
+    ].filter(Boolean);
+    $('camTonightText').textContent = changed.length ? changed.slice(0, 2).join(' · ') : 'Your usual palate';
+  }
+  const doneTable = () => { closeTable(); renderCamTonight(); renderPick(); if (current === 'overlay') renderTonight(); };
+  $('camTable').addEventListener('click', openTable);
+  $('tableScrim').addEventListener('click', doneTable);
+  $('tableReset').addEventListener('click', () => { tonight = { ...tableDefaults }; renderTable(); });
+  $('tableGo').addEventListener('click', doneTable);
+  $('seePicks').addEventListener('click', () => go('list'));
+  $('pickPreview').addEventListener('click', () => go('detail'));
+  // One quiet summary of tonight's settings; the whole row opens Set the table
+  const advShort = { 'Play it safe': 'Safe', 'A little curious': 'Curious', 'Surprise me': 'Surprise me' };
+  function tonightHTML() {
+    const bits = [tonight.pour, tonight.dinner, budgetLabel(), advShort[tonight.adv]].filter(Boolean).map(esc).join(' · ');
+    return '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 6h9M15 6h2M3 14h3M9 14h8" stroke="#2B2420" stroke-width="1.5" stroke-linecap="round"/><circle cx="13.5" cy="6" r="1.8" stroke="#2B2420" stroke-width="1.5"/><circle cx="7.5" cy="14" r="1.8" stroke="#2B2420" stroke-width="1.5"/></svg>' +
+      `<span><b>Tonight</b>${bits}</span><em>Edit</em>`;
+  }
+  function renderTonight() { $('tonightRow').innerHTML = tonightHTML(); renderSheet(); }
+  $('tonightRow').addEventListener('click', openTable);
+  $('listTonight').addEventListener('click', openTable);
+  $('sortSeg').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-sort]'); if (!b || b.dataset.sort === sortBy) return;
+    sortBy = b.dataset.sort;
+    $('sortSeg').querySelectorAll('button').forEach((x) => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+    renderPick();
+  });
+
+  /* ---------- Teach us more (bonus questions) ---------- */
+  const teach = [['How do you feel about oak?', ['Love it', "It's fine", 'Hard pass']], ['Sweet or bone dry?', ['A little sweet', 'Off-dry', 'Bone dry']], ['Bubbles: yay or nay?', ['Always', 'Sometimes', 'Nah']]];
+  let ti = 0;
+  function renderTeach() {
+    const [q, opts] = teach[ti];
+    $('teachQ').textContent = q; $('teachN').textContent = `${ti + 1} of 3`;
+    $('teachOpts').innerHTML = opts.map((o) => `<button>${o}</button>`).join('');
+    $('teachOpts').classList.remove('teach-anim'); void $('teachOpts').offsetWidth; $('teachOpts').classList.add('teach-anim');
+  }
+  $('teachOpts').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return; b.classList.add('on');
+    setTimeout(() => {
+      if (ti < teach.length - 1) { ti++; renderTeach(); }
+      else { $('teachQ').textContent = 'Palate updated. Cheers.'; $('teachN').textContent = '3 of 3'; $('teachOpts').innerHTML = ''; }
+    }, 350);
+  });
+  renderTeach();
+  document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => go(b.dataset.go)));
+
+
+  /* ---------- Loading ---------- */
+  let loadingMode = 'palate';
+
+  /* ---------- Tonight's pick (Final — 06b/06c/06d Detail) ---------- */
+  // Set the table's pour decides which of three picks Swish leads with.
+  // Overlay marks are measured against the menu photo: [top, width] per line, pick first.
+  const picks = {
+    red: {
+      name: 'Etna Rosso', listName: 'Etna Rosso, Calabretta', short: 'the Etna Rosso', pct: '94%', who: 'Calabretta · Etna, Sicily', meta: 'Calabretta · Etna, Sicily<br>NV · Nerello blend · $15/60', listMeta: 'Calabretta · Etna, Sicily · NV',
+      price: '$15/60', glass: 15, bottle: 60, circle: '#C02955', filter: 'none',
+      title: 'The Etna Rosso. Trust us.', why: 'Juicy, easygoing, a real crowd-pleaser, and it loves a plate of pasta.',
+      hook: '"Your favorite Beaujolais on a Sicilian vacation."', listWhy: 'Light-bodied with red cherry and a whisper of volcanic smoke. As juicy as the Beaujolais you rated 4.5.', tags: ['Light body', 'Red cherry'],
+      quote: 'Red cherry, wild strawberry and a whisper of volcanic smoke. Light on its feet, very flirty finish.',
+      scales: [['Body', 28, 'Light'], ['Acidity', 72, 'Zippy'], ['Tannin', 40, 'Silky'], ['Fruit', 64, 'Juicy']], pair: ['Cacio e pepe', 'Margherita pizza'],
+      fair: { verdict: 'Totally fair', x: '2.5× retail', why: 'Restaurants usually charge 2 to 3× what a shop does. This one sits right in the middle.', shop: 'about $24 a bottle', mark: 159, value: 'fair' },
+      marks: [[279, 298], [239, 249], [295, 298]], pill: 324,
+      runners: [['Gamay, Sauvette', 'Juicy and light, like the Beaujolais you rated 4.5', '88%', '$12/48', 'steal'], ['Tempranillo, Torremorón', 'Silky and savory, like your top-rated Riojas', '85%', '$12/48', 'steal']],
+    },
+    white: {
+      name: 'Grüner Veltliner', listName: 'Grüner Veltliner, Hiedler', short: 'the Grüner', pct: '91%', meta: 'Hiedler · Kamptal, Austria<br>2020 · Grüner Veltliner · $13/52', listMeta: 'Hiedler · Kamptal, Austria · 2020',
+      price: '$13/52', glass: 13, bottle: 52, circle: '#E5B351', filter: 'hue-rotate(95deg) saturate(1.6) brightness(1.25)',
+      title: 'The Grüner. Trust us.', why: 'Crisp, peppery and bright, the white for people who love their reds juicy.',
+      hook: '"Your zippy reds, but make it a white."', listWhy: 'Light-bodied with green apple and white pepper. All the zip of your favorite reds, in a white.', tags: ['Light body', 'Green apple'],
+      quote: 'Green apple, white pepper and a squeeze of lime. Crisp, clean and dangerously snackable.',
+      scales: [['Body', 24, 'Light'], ['Acidity', 86, 'Zippy'], ['Tannin', 4, 'None'], ['Fruit', 48, 'Crisp']], pair: ['Grilled fish', 'Spicy noodles'],
+      fair: { verdict: 'Fair, leaning steal', x: '2.2× retail', why: 'Restaurants usually charge 2 to 3× what a shop does. This one is on the kind end.', shop: 'about $24 a bottle', mark: 119, value: 'fair' },
+      marks: [[141, 283], [154, 231], [114, 290]], pill: 309,
+      runners: [['Aligoté, Castagnier', 'Zippy and lemony, close to your favorite Chablis', '86%', '$16/64', 'fair'], ['Pinot Bianco, Massican', 'Bright and floral, like the Friulano you rated 4', '83%', '$18/72', 'steep']],
+    },
+    bubbles: {
+      name: 'Sparkling Rosé', listName: 'Sparkling Rosé, Huber', short: 'the Huber', pct: '89%', meta: 'Huber · Traisental, Austria<br>NV · Zweigelt · $10/40', listMeta: 'Huber · Traisental, Austria · NV',
+      price: '$10/40', glass: 10, bottle: 40, circle: '#F78E72', filter: 'hue-rotate(-20deg) saturate(1.4) brightness(1.15)',
+      title: 'The Huber bubbles. Trust us.', why: 'Dry, berry-bright and fizzy, with the red fruit you always rate highest.',
+      hook: '"Strawberry season, with bubbles."', listWhy: 'Dry and light, with wild strawberry and fine bubbles. The red fruit you rate highest, with fizz.', tags: ['Dry', 'Wild strawberry'],
+      quote: 'Wild strawberry, pink grapefruit and fine, frisky bubbles. Dry, bright and gone too soon.',
+      scales: [['Body', 18, 'Light'], ['Acidity', 78, 'Zippy'], ['Tannin', 6, 'Soft'], ['Fruit', 72, 'Juicy']], pair: ['Fried chicken', 'Salty snacks'],
+      fair: { verdict: 'A steal', x: '1.8× retail', why: 'Restaurants usually charge 2 to 3× what a shop does. This one is barely marked up. Pop it.', shop: 'about $22 a bottle', mark: 84, value: 'steal' },
+      marks: [[25, 231], [65, 277], [12, 226]], pill: 257,
+      runners: [['Rosé, Vogelzang', 'Pink, dry and savory, like the Provence rosé you saved', '85%', '$16/64', 'fair'], ['Champagne, Duc de Romet', 'Toasty and fine, for when it turns into a whole night', '80%', '$22/88', 'fair']],
+    },
+  };
+  const pickKey = () => ({ White: 'white', Orange: 'white', 'Rosé': 'bubbles', Bubbles: 'bubbles' }[tonight.pour] || 'red');
+  const pick = () => picks[pickKey()];
+  const valueTag = (v) => `<span class="value ${v}">${v[0].toUpperCase() + v.slice(1)}</span>`;
+
+  /* ---------- List data (Final — 05b List · Value) ---------- */
+  const wines = [
+    ['Gamay, Sauvette', 'Juicy and light, like the Beaujolais you rated 4.5', '88%', '$12/48', 'steal'],
+    ['Tempranillo, Torremorón', 'Silky and savory, like your top-rated Riojas', '85%', '$12/48', 'steal'],
+    ["Pinot Noir, Presqu'il", 'Same cherry energy, a little lighter', '82%', '$15/60', 'fair'],
+    ['Pinot Noir, Van Canneyt', 'Burgundy, but easygoing', '80%', '$20/80', 'fair'],
+    ['Rosé, Vogelzang', 'Pink, dry, a little savory', '76%', '$16/64', 'fair'],
+    ['Sparkling Rosé, Huber', 'Bubbles that taste like strawberries', '72%', '$10/40', 'steal'],
+    ['Aligoté, Castagnier', 'A zippy white for red people', '68%', '$16/64', 'fair'],
+    ['Grüner Veltliner, Hiedler', 'Crisp, peppery, very snackable', '66%', '$13/52', 'fair'],
+    ['Chardonnay, Tyler', 'Lean Chardonnay, no butter bomb', '63%', '$15/60', 'steep'],
+    ['Sancerre, Belles Côtes', 'Grapefruit and wet stone', '60%', '$20/80', 'fair'],
+    ['Haut-Médoc, Valentin', 'Firmer than you usually like', '58%', '$16/64', 'fair'],
+    ['Pinot Bianco, Massican', 'Bright, floral, a little nutty', '55%', '$18/72', 'steep'],
+    ['Prosecco, Bele Casel', 'Bone dry, very easy', '52%', '$11/44', 'steep'],
+    ['Riesling, Von Beulwitz', 'A touch sweet, high-wire acid', '49%', '$19/76', 'fair'],
+    ['Champagne, Duc de Romet', "For when it's a whole occasion", '46%', '$22/88', 'fair'],
+    ['Cabernet, Mount Veeder', 'Big and bold. Not your vibe tonight.', '41%', '$25/100', 'fair'],
+    ['Etna Rosso, Calabretta', 'Juicy and light, very you', '94%', '$15/60', 'fair'],
+  ];
+  // Wine type for every bottle on the list, shown as a line glass + label on each card
+  const TYPES = { Red: '#C02955', White: '#E5B351', 'Rosé': '#BA75B6', Orange: '#F78E72', Sparkling: '#9E7CE9' };
+  const wineType = { 'Gamay, Sauvette': 'Red', 'Tempranillo, Torremorón': 'Red', "Pinot Noir, Presqu'il": 'Red', 'Pinot Noir, Van Canneyt': 'Red', 'Rosé, Vogelzang': 'Rosé',
+    'Sparkling Rosé, Huber': 'Sparkling', 'Aligoté, Castagnier': 'White', 'Grüner Veltliner, Hiedler': 'White', 'Chardonnay, Tyler': 'White', 'Sancerre, Belles Côtes': 'White',
+    'Haut-Médoc, Valentin': 'Red', 'Pinot Bianco, Massican': 'White', 'Prosecco, Bele Casel': 'Sparkling', 'Riesling, Von Beulwitz': 'White', 'Champagne, Duc de Romet': 'Sparkling',
+    'Cabernet, Mount Veeder': 'Red', 'Etna Rosso, Calabretta': 'Red' };
+  const typeTag = (name) => { const t = wineType[name] || 'Red'; return `${glassIcon(TYPES[t], 8)}<span>${t}</span>`; };
+  // Sort: best match (your palate), best value (price for quality), lowest price
+  let sortBy = 'match';
+  const valueRank = { steal: 0, fair: 1, steep: 2 };
+  const glassPrice = (w) => parseInt(w[3].slice(1), 10);
+  const sorters = {
+    match: (a, b) => parseInt(b[2], 10) - parseInt(a[2], 10),
+    value: (a, b) => valueRank[a[4]] - valueRank[b[4]] || parseInt(b[2], 10) - parseInt(a[2], 10),
+    price: (a, b) => glassPrice(a) - glassPrice(b) || parseInt(b[2], 10) - parseInt(a[2], 10),
+  };
+  const sortNames = { match: 'Best match first', value: 'Best value first', price: 'Lowest price first' };
+  const reds = ['Gamay, Sauvette', 'Tempranillo, Torremorón', "Pinot Noir, Presqu'il", 'Pinot Noir, Van Canneyt', 'Haut-Médoc, Valentin', 'Cabernet, Mount Veeder', 'Etna Rosso, Calabretta'];
+  // 3B: match as an eyebrow, then name and why, then both prices with the value tag pointing at them
+  const wineCard = (w) => { const [g, b] = w[3].slice(1).split('/'); return `<div class="wine-card"><div class="wine-top"><div class="wine-eyebrow"><span class="wtype">${typeTag(w[0])}</span></div><div class="card-pct">${w[2]}</div></div><div class="wine-name">${w[0]}</div><div class="wine-why">${w[1]}</div><div class="price-row"><b>$${g} glass · $${b} bottle</b><span class="vtag ${w[4]}">${vLabel[w[4]]}</span></div></div>`; };
+  function renderPick() {
+    const p = pick();
+    // List: hero + two runners-up, then everything else ranked
+    $('hPct').textContent = p.pct; $('hName').textContent = p.name; $('hMeta').textContent = p.listMeta; $('hWhy').textContent = p.listWhy;
+    $('hPrice').innerHTML = `<b>$${p.glass} glass · $${p.bottle} bottle</b><span class="vtag ${p.fair.value}">${vLabel[p.fair.value]}</span>`;
+    $('heroCard').setAttribute('aria-label', `Open ${p.short}`);
+    // Off-color wines slide down when tonight isn't a red night
+    const taken = [p.listName, ...p.runners.map((w) => w[0])];
+    const rest = wines.filter((w) => !taken.includes(w[0]))
+      .map((w) => (pickKey() !== 'red' && reds.includes(w[0]) ? [w[0], w[1], `${Math.round(parseInt(w[2], 10) * 0.8)}%`, w[3], w[4]] : w))
+      .sort(sorters.match);
+    $('hType').innerHTML = `<span class="wtype">${typeTag(p.listName)}</span>`;
+    $('picks').querySelectorAll('.wine-card, .rest-label:not(.pick-label)').forEach((n) => n.remove());
+    // Best match keeps the two runners-up on top; the other sorts reorder everything below the pinned pick
+    $('picks').insertAdjacentHTML('beforeend', sortBy === 'match'
+      ? p.runners.map(wineCard).join('') + `<div class="rest-label"><span class="caps">The rest of the list</span><span>${sortNames.match}</span></div>` + rest.map(wineCard).join('')
+      : `<div class="rest-label"><span class="caps">The rest of the list</span><span>${sortNames[sortBy]}</span></div>` + [...p.runners, ...rest].sort(sorters[sortBy]).map(wineCard).join(''));
+    $('listTonight').innerHTML = tonightHTML();
+    // Overlay
+    // The pick gets the raspberry fill and dot; close calls get an outline only
+    $('marks').innerHTML = p.marks.map(([t, w], i) => (i ? `<div class="band close m${i + 1}" style="top:${t}px;width:${w}px"></div>` : `<div class="band" style="top:${t}px;width:${w}px"></div><div class="mdot" style="top:${t + 3}px"></div>`)).join('');
+    Object.assign($('ovPct').style, { top: `${p.marks[0][0] - 2}px`, left: `${p.pill}px` }); $('ovPct').textContent = p.pct;
+    $('pickRow').style.top = `${p.marks[0][0] - 8}px`; $('pickRow').style.setProperty('--w', `${p.marks[0][1] + 4}px`); $('pickRow').setAttribute('aria-label', `Open ${p.short}, ${p.price}`);
+    selected = null; renderSheet();
+    // Detail
+    $('dType').innerHTML = `<span class="wtype">${typeTag(p.listName)}</span>`; $('dName').textContent = p.name; $('dMeta').innerHTML = p.meta; $('dPct').textContent = p.pct; $('dQuote').textContent = p.quote;
+    $('dCircle').style.borderColor = p.circle; $('dBottle').style.filter = p.filter; $('dBottle').alt = `Bottle of ${p.name}`;
+    $('dScales').innerHTML = p.scales.map(([k, x, v]) => `<div class="scale"><b>${k}</b><div class="track"><i data-x="${x}"></i></div><span>${v}</span></div>`).join('');
+    $('dPair').innerHTML = p.pair.map((c) => `<span class="chip">${c}</span>`).join('');
+    const f = p.fair;
+    $('fVerdict').textContent = f.verdict; $('fX').textContent = f.x; $('fWhy').textContent = f.why; $('fMark').style.left = `${f.mark}px`;
+    $('fShop').textContent = f.shop; $('fBottle').textContent = `$${p.bottle}`; $('fGlass').textContent = `$${p.glass}`;
+    $('ppName').textContent = p.who ? `${p.who.split(' ·')[0]} ${p.name}` : `${p.listMeta.split(' ·')[0]} ${p.name}`; $('ppPct').textContent = p.pct; $('ppPrice').textContent = p.price;
+    $('doneText').textContent = `One ${p.name}, coming up. We'll check in tomorrow and sync your verdict to Vivino.`;
+  }
+  /* ---------- Menu view: every line on the photo is tappable (Final — 04d) ---------- */
+  // [top, right edge] of each wine's line on the menu photo, measured in the overlay frame
+  const lines = {
+    'Prosecco, Bele Casel': [1, 305], 'Champagne, Duc de Romet': [13, 300], 'Sparkling Rosé, Huber': [25, 268], 'Rosé, Vogelzang': [65, 351],
+    'Pinot Bianco, Massican': [114, 364], 'Riesling, Von Beulwitz': [127, 400], 'Grüner Veltliner, Hiedler': [141, 357], 'Aligoté, Castagnier': [154, 305],
+    'Sancerre, Belles Côtes': [168, 368], 'Chardonnay, Tyler': [196, 292], 'Gamay, Sauvette': [239, 328], "Pinot Noir, Presqu'il": [252, 336],
+    'Pinot Noir, Van Canneyt': [266, 361], 'Etna Rosso, Calabretta': [279, 372], 'Tempranillo, Torremorón': [295, 373], 'Haut-Médoc, Valentin': [308, 400], 'Cabernet, Mount Veeder': [323, 362],
+  };
+  const vLabel = { steal: '$ Steal', fair: '$$ Fair', steep: '$$$ Steep' };
+  let selected = null;
+  // Tonight's numbers for any wine on the list (runners-up and off-color reds as the List shows them)
+  function wineRow(name) {
+    const p = pick();
+    const runner = p.runners.find((w) => w[0] === name);
+    if (runner) return runner;
+    const w = wines.find((x) => x[0] === name);
+    return pickKey() !== 'red' && reds.includes(name) ? [w[0], w[1], `${Math.round(parseInt(w[2], 10) * 0.8)}%`, w[3], w[4]] : w;
+  }
+  function renderSheet() {
+    const p = pick();
+    const isPick = !selected || selected === p.listName;
+    $('backToPick').hidden = isPick;
+    $('selMark').innerHTML = '';
+    if (isPick) {
+      $('ovEyebrow').textContent = 'Swish this'; $('ovTitle').textContent = p.title; $('ovWhy').textContent = p.why;
+      $('ovPrice').textContent = `$${p.glass} glass · $${p.bottle} bottle`; $('ovTag').className = `vtag ${p.fair.value}`; $('ovTag').textContent = vLabel[p.fair.value];
+      $('tellWhy').textContent = 'Give me a taste';
+      return;
+    }
+    const [name, why, pct, price, value] = wineRow(selected);
+    const [g, b] = price.slice(1).split('/');
+    $('ovEyebrow').textContent = `${pct} match`; $('ovTitle').textContent = name; $('ovWhy').textContent = why;
+    $('ovPrice').textContent = `$${g} glass · $${b} bottle`; $('ovTag').className = `vtag ${value}`; $('ovTag').textContent = vLabel[value];
+    $('tellWhy').textContent = 'Swish it';
+    const [top, end] = lines[selected]; const w = Math.min(end, 380) - 79;
+    $('selMark').innerHTML = `<div class="sel-band" style="top:${top - 2}px;width:${w + 6}px"></div><div class="sel-pct" style="top:${top - 2}px;left:${Math.min(24 + w + 10, 330)}px">${pct}</div>`;
+  }
+  $('lineTaps').innerHTML = Object.entries(lines).map(([n, [t]]) => `<button class="line-tap" style="top:${t - 2}px" data-wine="${esc(n)}" aria-label="${esc(n)}"></button>`).join('');
+  $('lineTaps').addEventListener('click', (e) => { const b = e.target.closest('.line-tap'); if (!b) return; selected = b.dataset.wine === pick().listName ? null : b.dataset.wine; renderSheet(); });
+  renderPick();
+
+  /* ---------- Weather pill (Swish — Weather pills) ---------- */
+  // The icon follows the real conditions; tap cycles them for the demo
+  const wxCloud = (y) => `<path d="M8 ${y}h13a4.8 4.8 0 0 0 0-9.6 6.3 6.3 0 0 0-12.1 2.1A3.8 3.8 0 0 0 8 ${y}z" fill="#FFFBF6" stroke="#2B2420" stroke-width="1.6" stroke-linejoin="round"/>`;
+  const weathers = [
+    ['64° and cloudy', '90% chance of red', `<circle cx="10" cy="10" r="4.5" fill="#E5B351"/>${wxCloud(22)}`],
+    ['72° and clear', "Rosé o'clock", '<circle cx="15" cy="15" r="6" fill="#E5B351" stroke="#2B2420" stroke-width="1.6"/><path d="M15 3.5v3M15 23.5v3M3.5 15h3M23.5 15h3M6.9 6.9l2.1 2.1M21 21l2.1 2.1M6.9 23.1L9 21M21 9l2.1-2.1" stroke="#2B2420" stroke-width="1.6" stroke-linecap="round"/>'],
+    ['58° and rainy', "It's raining reds", `${wxCloud(18)}<path d="M11 22.5c0 1-.7 1.6-1.4 1.6s-1.4-.6-1.4-1.6c0-.9 1.4-2.6 1.4-2.6s1.4 1.7 1.4 2.6zM17 24.5c0 1-.7 1.6-1.4 1.6s-1.4-.6-1.4-1.6c0-.9 1.4-2.6 1.4-2.6s1.4 1.7 1.4 2.6zM23 22.5c0 1-.7 1.6-1.4 1.6s-1.4-.6-1.4-1.6c0-.9 1.4-2.6 1.4-2.6s1.4 1.7 1.4 2.6z" fill="#9E7CE9"/>`],
+    ['31° and snowy', 'Big, cozy reds', `${wxCloud(18)}<path d="M10 21.5v4M8 23.5h4M16 23v4M14 25h4M22 21.5v4M20 23.5h4" stroke="#9E7CE9" stroke-width="1.5" stroke-linecap="round"/>`],
+    ['61° and windy', 'Hold onto your glass', '<path d="M4 11h14a3.5 3.5 0 1 0-3.5-3.5M4 16h19a3.5 3.5 0 1 1-3.5 3.5M4 21h9" stroke="#2B2420" stroke-width="1.6" stroke-linecap="round"/><circle cx="24" cy="10" r="2.6" fill="#E5B351"/>'],
+  ];
+  let wx = 0;
+  function renderWeather() {
+    const [temp, wink, icon] = weathers[wx];
+    $('weather').innerHTML = `<svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">${icon}</svg><span>${temp}</span><i></i><b>${wink}</b>`;
+  }
+  $('weather').addEventListener('click', () => { wx = (wx + 1) % weathers.length; renderWeather(); });
+  renderWeather();
+
+  /* ---------- Screen enter hooks ---------- */
+  const enter = {
+    welcome() {
+      // Move on the moment the cheers finishes (hands apart and still); the timer is only a safety net.
+      const h = document.querySelector('#welcome .welcome-art .cl-l');
+      let done = false;
+      const next = () => { if (done || current !== 'welcome') return; done = true; go('app', { push: false }); };
+      const hold = () => later(next, 150);
+      h.addEventListener('animationend', hold, { once: true });
+      later(next, 6400);
+    },
+    quiz() { renderQuiz(); },
+    loading() {
+      if (loadingMode === 'palate') { $('loadingTitle').textContent = 'Pouring your palate…'; $('loadingSub').textContent = 'Sniffing out your match from 12,000 wines.'; later(() => go('result', { push: false }), 3800); }
+      else { $('loadingTitle').textContent = 'Reading the list…'; $('loadingSub').textContent = 'Matching 20 wines to your palate.'; later(() => go('overlay', { push: false }), 3200); }
+    },
+    result() {
+      const picks = answers[1].length ? answers[1] : [1];
+      const opts = picks.map((i) => questions[1].options[i]);
+      const titles = { crisp: "You're crisp, with zero apologies.", juicy: "You're juicy, and proud of it.", bold: "You like 'em big and bold.", earthy: "You're a little funky. Respect.",
+        'earthy+juicy': "You're juicy, with a funky streak.", 'crisp+juicy': "You're bright, breezy and juicy.", 'bold+juicy': 'Juicy up front, bold underneath.',
+        'bold+earthy': 'Bold, earthy, a little mysterious.', 'crisp+earthy': 'Crisp with a funky streak.', 'bold+crisp': 'Crisp or bold, never boring.' };
+      const k = opts.map((o) => o[3]).sort().join('+');
+      $('resultTitle').textContent = titles[k] || titles[opts[0][3]];
+      $('resultDots').innerHTML = opts.map((o) => `<i class="flav" style="--c:${o[2]}">${flavIcon(o[3], o[2], 24)}</i>`).join('');
+      const chips = opts.map((o) => o[0]);
+      [2, 4].forEach((qn) => { if (answers[qn].length) chips.push(questions[qn].options[answers[qn][0]][0]); });
+      $('resultChips').innerHTML = chips.map((c) => `<span class="chip">${c}</span>`).join('');
+    },
+    overlay() { renderTonight(); },
+    profile() { $('profile').querySelector('.scroll').scrollTop = 0; },
+    swishlist() { $('swishlist').querySelector('.scroll').scrollTop = 0; },
+    camera() { $('camera').classList.remove('scanning'); $('camTonight').hidden = false; $('camStatus').hidden = true; renderCamTonight(); $('shutterHint').hidden = false; },
+    list() { $('list').querySelector('.scroll').scrollTop = 0; },
+    detail() {
+      $('detail').querySelector('.scroll').scrollTop = 0;
+      document.querySelectorAll('.track i').forEach((d) => { d.style.left = '0'; });
+      later(() => document.querySelectorAll('.track i').forEach((d) => { d.style.left = `${d.dataset.x}%`; }), 120);
+    },
+  };
+
+  /* ---------- Result → camera ---------- */
+  $('snapList').addEventListener('click', () => go('camera'));
+  // X leaves the quiz flow entirely, back to wherever it was started (Profile or Home)
+  $('resultClose').addEventListener('click', () => {
+    let to = 'app';
+    while (history.length) { const h = history.pop(); if (!['quiz', 'loading', 'result'].includes(h)) { to = h; break; } }
+    go(to, { back: true, push: false });
+  });
+
+  /* ---------- Camera ---------- */
+  $('shutter').addEventListener('click', () => {
+    if ($('camera').classList.contains('scanning')) return;
+    $('shutterHint').hidden = true;
+    $('camTonight').hidden = true; $('camStatus').hidden = false;
+    const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+    $('camera').classList.add('scanning');
+    let n = 0;
+    const tick = () => { n += 2; $('camChip').textContent = `Decoding… ${Math.min(n, 14)} of 20 wines`; if (n < 14) later(tick, 110); };
+    tick();
+    later(() => { loadingMode = 'list'; go('loading'); }, 1800);
+  });
+
+  /* ---------- Overlay / List / Detail ---------- */
+  $('tellWhy').addEventListener('click', () => { if (selected) swishWine(selected); else go('detail'); });
+  $('backToPick').addEventListener('click', () => { selected = null; renderSheet(); });
+  $('toList').addEventListener('click', () => go('list'));
+  $('toOverlay').addEventListener('click', () => go('overlay', { push: false }));
+  $('listBack').addEventListener('click', goBack);
+  $('heroCard').addEventListener('click', () => go('detail'));
+  $('detailBack').addEventListener('click', goBack);
+  $('toFullList').addEventListener('click', () => go('list'));
+  // Swishing a wine pins it to Home until you change it from the list
+  let sipping = null;
+  function renderHome() {
+    $('pickedCard').hidden = !sipping; $('findCard').hidden = !!sipping;
+    $('homeTitle').textContent = sipping ? 'Tonight\'s sorted. Enjoy every sip.' : 'What are we sipping tonight?';
+    if (!sipping) return;
+    const p = sipping;
+    $('pkName').textContent = p.name;
+    $('pkMeta').textContent = `${p.maker} · ${tonight.mode === 'glass' ? `$${p.glass} a glass` : `$${p.bottle} bottle`} · ${p.value[0].toUpperCase() + p.value.slice(1)}`;
+    $('pkCircle').style.borderColor = p.circle; $('pkBottle').style.filter = p.filter;
+  }
+  $('changePick').addEventListener('click', () => go('list'));
+  // Swish any wine: tonight's pick from its detail page, or any line tapped on the menu
+  function swishWine(name) {
+    const p = pick();
+    if (!name || name === p.listName) {
+      sipping = { name: p.name, maker: p.who ? p.who.split(' ·')[0] : p.listMeta.split(' · ')[0], glass: p.glass, bottle: p.bottle, value: p.fair.value, circle: p.circle, filter: p.filter };
+    } else {
+      const [full, , , price, value] = wineRow(name);
+      const [label, maker] = full.split(', ');
+      const [g, b] = price.slice(1).split('/');
+      const tint = reds.includes(full) ? picks.red : /Rosé/.test(full) ? picks.bubbles : picks.white;
+      sipping = { name: label, maker, glass: g, bottle: b, value, circle: tint.circle, filter: tint.filter };
+    }
+    $('doneText').textContent = `One ${sipping.name}, coming up. We'll check in tomorrow and sync your verdict to Vivino.`;
+    renderHome(); $('scrim').classList.add('on'); $('done').classList.add('on');
+  }
+  $('swishIt').addEventListener('click', () => swishWine());
+  // Two of the loading screen's hand-drawn glasses (orchid + teal), set up to clink
+  const hand = (cls) => document.querySelector(`#loading .${cls}`).innerHTML;
+  $('doneArt').innerHTML = `<svg viewBox="0 0 400 240" fill="none" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <g class="cl cl-l"><g transform="translate(18 -158)" stroke="#BA75B6">${hand('d3')}</g></g>
+    <g class="cl cl-r"><g transform="translate(-15 -4)" stroke="#9E7CE9">${hand('d2')}</g></g>
+    <g class="spark" stroke="#C02955" stroke-width="3"><path d="M190 48l-5-13"/><path d="M198 45v-15"/><path d="M206 48l6-12"/><path d="M180 54l-12-8"/><path d="M216 54l12-8"/></g></svg>`;
+  // Welcome: the same two hands, one clink under the logo
+  $('welcomeArt').innerHTML = `<g class="cl cl-l"><g transform="translate(18 -158)" stroke="#BA75B6">${hand('d3')}</g></g>
+    <g class="cl cl-r"><g transform="translate(-15 -4)" stroke="#9E7CE9">${hand('d2')}</g></g>
+    <g class="spark" stroke="#C02955" stroke-width="3"><path d="M190 48l-5-13"/><path d="M198 45v-15"/><path d="M206 48l6-12"/></g>`;
+  function hideDone() { $('scrim').classList.remove('on'); $('done').classList.remove('on'); }
+  $('scrim').addEventListener('click', hideDone);
+
+  /* ---------- Restart / controls ---------- */
+  function restart() { answers = questions.map(() => []); qi = 0; history = []; go('home', { back: true, push: false }); }
+  $('restart').addEventListener('click', () => { hideDone(); history = []; go('app', { back: true, push: false }); });
+  $('resetAll').addEventListener('click', restart);
+  $('prevStep').addEventListener('click', () => { if (current === 'quiz' && qi > 0) { qi--; renderQuiz(); } else goBack(); });
+})();
+</script>
+</body>
+</html>
